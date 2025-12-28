@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "devops-demo-terraform-locks"
+  name         = "${local.prefix}terraform-locks"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
 
@@ -15,13 +15,12 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-# Uncomment after creating the S3 bucket and DynamoDB table
-# terraform {
-#   backend "s3" {
-#     bucket         = "devops-demo-terraform-state"
-#     key            = "prod/terraform.tfstate"
-#     region         = "ca-west-1"
-#     encrypt        = true
-#     dynamodb_table = "devops-demo-terraform-locks"
-#   }
-# }
+terraform {
+  backend "s3" {
+    bucket         = "jack-devops-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "ca-west-1"
+    encrypt        = true
+    dynamodb_table = "jack-devops-terraform-locks"
+  }
+}

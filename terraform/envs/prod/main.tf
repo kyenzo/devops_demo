@@ -1,7 +1,11 @@
+locals {
+  prefix = "jack-devops-"
+}
+
 module "terraform_state_bucket" {
   source = "../../modules/s3-bucket"
 
-  bucket_name         = var.state_bucket_name
+  bucket_name         = "${local.prefix}terraform-state"
   versioning_enabled  = true
   block_public_access = true
 
@@ -12,11 +16,3 @@ module "terraform_state_bucket" {
   }
 }
 
-# module "loadbalancer" {
-#   source = "../../modules/loadbalancer"
-
-#   name            = var.lb_name
-#   security_groups = var.security_groups
-#   subnets         = var.subnets
-#   vpc_id          = var.vpc_id
-# }
