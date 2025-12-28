@@ -8,6 +8,8 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+.terraform.lock.hcl
+*/.terraform.lock.hcl
 
 # Crash log files
 crash.log
@@ -27,3 +29,4 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+
