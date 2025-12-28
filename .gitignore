@@ -19,6 +19,8 @@ crash.*.log
 *.swp
 *.swo
 *~
+.claude/*
+*/.claude
 
 # OS files
 .DS_Store
