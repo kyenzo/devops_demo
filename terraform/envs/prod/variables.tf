@@ -1,3 +1,13 @@
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "state_bucket_name" {
+  description = "Name of the S3 bucket for Terraform state"
+  type        = string
+}
+
 variable "lb_name" {
   description = "Name of the load balancer"
   type        = string
