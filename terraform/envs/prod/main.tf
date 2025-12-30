@@ -109,3 +109,23 @@ module "eks" {
   }
 }
 
+module "argocd" {
+  source = "../../modules/argocd"
+
+  # Dependency on EKS cluster
+  cluster_endpoint = module.eks.cluster_endpoint
+
+  # ArgoCD configuration
+  repository_url  = "https://github.com/kyenzo/devops_demo.git"
+  target_revision = "HEAD"
+
+  # Enable GitOps components
+  enable_root_app         = true
+  enable_platform_project = false  # Disabled - not needed yet
+
+  # Module depends on EKS being fully ready
+  depends_on = [
+    module.eks
+  ]
+}
+

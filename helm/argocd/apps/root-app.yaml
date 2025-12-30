@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
+  # Finalizer to ensure proper cleanup
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/kyenzo/devops_demo.git
+    targetRevision: HEAD  # Can be changed to specific branch/tag
+    path: helm/argocd/apps
+    directory:
+      recurse: true
+      exclude: 'root-app.yaml'  # Exclude itself to prevent recursion
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources when removed from Git
+      selfHeal: true   # Auto-sync when cluster state drifts
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

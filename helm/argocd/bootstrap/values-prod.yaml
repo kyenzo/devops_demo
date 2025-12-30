@@ -1,0 +1,31 @@
+# Production-specific overrides
+argo-cd:
+  global:
+    domain: argocd.jack-devops.local
+
+  configs:
+    cm:
+      # Strict sync options for production
+      application.instanceLabelKey: argocd.argoproj.io/instance
+
+    params:
+      server.insecure: false  # Enable TLS in actual production
+
+  # Production resource sizing (adjusted for t3.small nodes)
+  controller:
+    replicas: 1  # Single replica for cost optimization
+
+  server:
+    replicas: 1
+    autoscaling:
+      enabled: false  # Disabled for predictable costs
+
+  repoServer:
+    replicas: 1
+
+# Additional production labels
+commonLabels:
+  environment: prod
+  managedBy: helm
+  project: eks-demo
+  costCenter: devops-demo
