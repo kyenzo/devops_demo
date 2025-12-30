@@ -120,8 +120,7 @@ module "argocd" {
   target_revision = "HEAD"
 
   # Enable GitOps components
-  enable_root_app         = true
-  enable_platform_project = false  # Disabled - not needed yet
+  enable_root_app = true
 
   # Module depends on EKS being fully ready
   depends_on = [

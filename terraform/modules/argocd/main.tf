@@ -33,12 +33,3 @@ resource "kubectl_manifest" "root_app" {
 
   depends_on = [helm_release.argocd]
 }
-
-# Optionally create platform project
-resource "kubectl_manifest" "platform_project" {
-  count = var.enable_platform_project ? 1 : 0
-
-  yaml_body = file("${path.module}/../../../helm/argocd/projects/platform-project.yaml")
-
-  depends_on = [helm_release.argocd]
-}

@@ -28,12 +28,6 @@ variable "enable_root_app" {
   default     = true
 }
 
-variable "enable_platform_project" {
-  description = "Deploy platform ArgoCD project"
-  type        = bool
-  default     = true
-}
-
 variable "cluster_endpoint" {
   description = "EKS cluster endpoint (used for dependency)"
   type        = string
