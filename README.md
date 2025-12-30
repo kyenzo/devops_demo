@@ -95,16 +95,34 @@ terraform/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
-│   └── s3-bucket/               # S3 bucket module
+│   ├── s3-bucket/               # S3 bucket module
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── argocd/                  # ArgoCD GitOps automation
 │       ├── main.tf
 │       ├── variables.tf
 │       └── outputs.tf
 └── envs/                        # Environment configurations
     └── prod/                    # Production environment
         ├── backend.tf           # S3 backend configuration
-        ├── providers.tf         # AWS provider setup
+        ├── providers.tf         # AWS, Helm, and kubectl providers
         ├── main.tf              # Main configuration
         └── variables.tf         # Environment variables
+
+helm/
+├── argocd/
+│   ├── bootstrap/                # ArgoCD installation configuration
+│   │   ├── values.yaml          # Default ArgoCD settings
+│   │   ├── values-prod.yaml     # Production overrides
+│   │   ├── Chart.yaml           # Chart metadata
+│   │   └── README.md            # Installation guide
+│   └── apps/                    # ArgoCD Application manifests
+│       ├── root-app.yaml        # Root Application (App-of-Apps)
+│       └── README.md
+├── README.md                     # Helm and GitOps documentation
+├── AUTOMATION.md                 # Terraform automation details
+└── QUICKSTART.md                 # Quick verification guide
 ```
 
 ## Terraform Modules
@@ -192,6 +210,22 @@ General-purpose S3 bucket module for various use cases including Terraform state
 - Encryption options
 - Lifecycle policies
 
+### 6. ArgoCD Module (`modules/argocd`)
+
+Automates ArgoCD deployment and configuration for GitOps-based application delivery.
+
+**Features:**
+- Automated ArgoCD installation via Helm provider
+- Root application deployment (App-of-Apps pattern)
+- Integration with GitHub repository
+- LoadBalancer service for UI access
+- Auto-sync and self-heal capabilities
+
+**Resources Created:**
+- ArgoCD Helm release with custom values
+- Root Application manifest for App-of-Apps pattern
+- Repository configuration pointing to this GitHub repo
+
 ## Special Features
 
 ### 1. RBAC and Access Control
@@ -257,7 +291,30 @@ backend "s3" {
 - Resource tagging for cost tracking
 - Destroy/recreate workflow for development
 
-### 5. Modular Architecture
+### 5. GitOps with ArgoCD
+
+**App-of-Apps Pattern:**
+- Root application watches `helm/argocd/apps/` directory
+- Any new Application manifest is automatically deployed
+- Declarative application management via Git
+- Auto-sync and self-heal enabled
+
+**Deployment Workflow:**
+```
+Developer → Commit YAML to helm/argocd/apps/ → Push to GitHub
+                                                      ↓
+                                            ArgoCD detects change
+                                                      ↓
+                                            Auto-sync to cluster
+```
+
+**Features:**
+- Automated deployment on Git push
+- Version-controlled application state
+- Easy rollback capability
+- Single source of truth (Git repository)
+
+### 6. Modular Architecture
 
 **Design Principles:**
 - Self-contained modules with clear boundaries
@@ -289,6 +346,7 @@ backend "s3" {
 | **Instance Type** | t3.small |
 | **Capacity Type** | ON_DEMAND |
 | **Node Disk Size** | 20 GB |
+| **ArgoCD** | Deployed with LoadBalancer, App-of-Apps pattern |
 
 ## Getting Started
 
@@ -298,6 +356,7 @@ backend "s3" {
 - AWS CLI configured
 - Terraform >= 1.0
 - kubectl
+- Helm (for manual ArgoCD operations, optional)
 
 ### Deployment
 
@@ -325,6 +384,19 @@ backend "s3" {
 5. **Verify cluster access:**
    ```bash
    kubectl get nodes
+   kubectl get pods -n argocd
+   ```
+
+6. **Access ArgoCD UI:**
+   ```bash
+   # Get admin password
+   kubectl -n argocd get secret argocd-initial-admin-secret \
+     -o jsonpath="{.data.password}" | base64 -d
+
+   # Port forward to access UI
+   kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+   # Access: https://localhost:8080 (username: admin)
    ```
 
 ### Accessing the Cluster
@@ -374,11 +446,19 @@ kubectl get pods -A
 - [x] API endpoint access control
 - [x] Integration testing and validation
 
-### Phase 4: Future Enhancements (Planned)
+### Phase 4: GitOps and Automation (Completed)
+- [x] ArgoCD module for automated deployment
+- [x] Helm and kubectl provider configuration
+- [x] Root application (App-of-Apps pattern)
+- [x] GitHub repository integration
+- [x] Auto-sync and self-heal configuration
+- [x] Documentation (helm/README.md, AUTOMATION.md, QUICKSTART.md)
+
+### Phase 5: Future Enhancements (Planned)
+- [ ] Sample application deployment via ArgoCD
+- [ ] Monitoring and logging (Prometheus, Grafana via ArgoCD)
+- [ ] Ingress controller (NGINX via ArgoCD)
 - [ ] VPN setup for secure private cluster access
-- [ ] Monitoring and logging (Prometheus, Grafana)
-- [ ] Application workload deployment
-- [ ] Ingress controller (ALB/NGINX)
 - [ ] CI/CD pipeline integration
 - [ ] Secrets management (AWS Secrets Manager/External Secrets)
 - [ ] Auto-scaling configuration (Cluster Autoscaler/Karpenter)
