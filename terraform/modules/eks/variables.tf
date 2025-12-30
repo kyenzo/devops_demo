@@ -119,6 +119,12 @@ variable "enable_kube_proxy_addon" {
   default     = true
 }
 
+variable "admin_access_principal_arn" {
+  description = "ARN of IAM principal (user, role, or root) to grant admin access to the EKS cluster"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

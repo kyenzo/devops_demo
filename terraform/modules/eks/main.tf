@@ -12,6 +12,11 @@ resource "aws_eks_cluster" "this" {
     security_group_ids      = var.cluster_security_group_ids
   }
 
+  # Enable API-based authentication for Access Entries
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
   enabled_cluster_log_types = var.enabled_cluster_log_types
 
   tags = var.tags
@@ -74,4 +79,27 @@ resource "aws_eks_addon" "kube_proxy" {
   addon_name   = "kube-proxy"
 
   tags = var.tags
+}
+
+# EKS Access Entry for Admin Role
+resource "aws_eks_access_entry" "admin" {
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = var.admin_access_principal_arn
+  type          = "STANDARD"
+
+  tags = var.tags
+}
+
+resource "aws_eks_access_policy_association" "admin_cluster_admin" {
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = var.admin_access_principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admin]
 }

@@ -1,4 +1,7 @@
 # Project Context
+ALWAYS USE BEST PRACTICES!!!!
+The EKS access should be RBAC only!
+And the root user must be able to assume the EKS admin role and list the cluster resources!
 
 ## Project Overview
 This is a DevOps demo project that demonstrates infrastructure as code using Terraform for AWS resources.

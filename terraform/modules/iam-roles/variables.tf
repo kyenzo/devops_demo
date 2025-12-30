@@ -20,6 +20,24 @@ variable "eks_node_group_role_name" {
   type        = string
 }
 
+variable "create_eks_admin_role" {
+  description = "Whether to create EKS admin access IAM role"
+  type        = bool
+  default     = false
+}
+
+variable "eks_admin_role_name" {
+  description = "Name of the EKS admin access IAM role"
+  type        = string
+  default     = ""
+}
+
+variable "eks_admin_role_principals" {
+  description = "List of IAM principal ARNs that can assume the EKS admin role"
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags to apply to IAM roles"
   type        = map(string)

