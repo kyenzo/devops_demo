@@ -12,14 +12,19 @@ metadata:
 spec:
   project: default
 
-  source:
-    repoURL: https://github.com/kyenzo/devops_demo.git
-    targetRevision: master
-    path: helm/prometheus
-    helm:
-      valueFiles:
-        - values.yaml
-        - values-prod.yaml
+  # Use multiple sources: Helm chart + our values from Git
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 67.2.0
+      helm:
+        valueFiles:
+          - $values/helm/prometheus/values.yaml
+          - $values/helm/prometheus/values-prod.yaml
+
+    - repoURL: https://github.com/kyenzo/devops_demo.git
+      targetRevision: master
+      ref: values
 
   destination:
     server: https://kubernetes.default.svc
@@ -29,17 +34,6 @@ spec:
   ignoreDifferences:
     - group: apiextensions.k8s.io
       kind: CustomResourceDefinition
-      name: prometheusagents.monitoring.coreos.com
-      jsonPointers:
-        - /status
-    - group: apiextensions.k8s.io
-      kind: CustomResourceDefinition
-      name: thanosrulers.monitoring.coreos.com
-      jsonPointers:
-        - /status
-    - group: apiextensions.k8s.io
-      kind: CustomResourceDefinition
-      name: scrapeconfigs.monitoring.coreos.com
       jsonPointers:
         - /status
 
@@ -50,7 +44,7 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
+      - Replace=true
     retry:
       limit: 5
       backoff:
