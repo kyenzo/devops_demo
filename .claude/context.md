@@ -78,12 +78,12 @@ I need to have a complete AWS Infrastructure as code solution for hosting a high
 I need this project to be built step by step in purpose of learning, but at the end this project should be fine-tuned and presentable at a tech interview.
 
 ## GitOps Workflow
-ArgoCD is configured to watch the `helm/apps/` directory in the GitHub repository. To deploy new applications:
+ArgoCD is configured to watch the `helm/apps/` directory in the GitHub repository on the `master` branch only. To deploy new applications:
 1. Create an Application YAML manifest in `helm/apps/`
-2. Commit and push to GitHub
+2. Commit and push to the `master` branch on GitHub
 3. ArgoCD automatically detects and deploys within 3 minutes (or force sync via UI)
 
-The root-app implements the App-of-Apps pattern, excluding itself from sync to prevent recursion.
+The root-app implements the App-of-Apps pattern, excluding itself from sync to prevent recursion. Changes to other branches will not trigger ArgoCD deployments.
 
 ## Key Files
 - **terraform/modules/argocd/main.tf**: Helm provider deployment of ArgoCD and kubectl manifest application

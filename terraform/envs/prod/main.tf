@@ -117,7 +117,7 @@ module "argocd" {
 
   # ArgoCD configuration
   repository_url  = "https://github.com/kyenzo/devops_demo.git"
-  target_revision = "HEAD"
+  target_revision = "master"  # Only monitor master branch for production
 
   # Enable GitOps components
   enable_root_app = true

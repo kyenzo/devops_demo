@@ -88,17 +88,19 @@ Application manifests managed by ArgoCD (App-of-Apps pattern).
 ## GitOps Workflow
 
 ```
-Developer makes change → Commit to Git → Push to GitHub
+Developer makes change → Commit to Git → Push to master branch
                                               ↓
                                     ArgoCD detects change
                                               ↓
                                    ArgoCD syncs to cluster
 ```
 
+**Branch Monitoring**: ArgoCD is configured to monitor only the `master` branch for production deployments. Changes to other branches will not trigger automatic deployments.
+
 ### Making Changes
 
 1. Edit any file in `helm/apps/`
-2. Commit and push to GitHub
+2. Commit and push to the `master` branch on GitHub
 3. ArgoCD auto-syncs within 3 minutes
 4. Or manually sync in ArgoCD UI
 

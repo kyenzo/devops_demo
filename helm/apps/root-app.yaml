@@ -15,7 +15,7 @@ spec:
 
   source:
     repoURL: https://github.com/kyenzo/devops_demo.git
-    targetRevision: HEAD  # Can be changed to specific branch/tag
+    targetRevision: master  # Only monitor master branch for production deployments
     path: helm/apps
     directory:
       recurse: true
