@@ -1,0 +1,21 @@
+apiVersion: v2
+name: kube-prometheus-stack-bootstrap
+description: Prometheus and Grafana monitoring stack for EKS cluster
+version: 1.0.0
+type: application
+
+keywords:
+  - prometheus
+  - grafana
+  - monitoring
+  - metrics
+  - kubernetes
+
+maintainers:
+  - name: Jack DevOps Demo
+    email: noreply@jack-devops.local
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: 67.2.0
+    repository: https://prometheus-community.github.io/helm-charts

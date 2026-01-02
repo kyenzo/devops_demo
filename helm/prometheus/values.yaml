@@ -1,0 +1,168 @@
+# Base values for kube-prometheus-stack
+# This configuration is optimized for a demo/learning environment
+
+kube-prometheus-stack:
+  # Common labels applied to all resources
+  commonLabels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
+
+  # Prometheus Operator configuration
+  prometheusOperator:
+    enabled: true
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # Prometheus configuration
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      replicas: 1
+      retention: 1d
+      retentionSize: "1800MB"
+
+      # Resource limits
+      resources:
+        requests:
+          cpu: 300m
+          memory: 1Gi
+        limits:
+          cpu: 500m
+          memory: 1.5Gi
+
+      # Storage configuration
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp3
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 2Gi
+
+      # Scrape interval configuration (cost optimization)
+      scrapeInterval: 30s
+      evaluationInterval: 30s
+
+      # Service monitor selectors
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+
+  # Grafana configuration
+  grafana:
+    enabled: true
+    replicas: 1
+
+    # Admin credentials
+    adminUser: admin
+    # Password will be auto-generated and stored in secret
+
+    # Persistence for dashboards
+    persistence:
+      enabled: true
+      type: pvc
+      storageClassName: gp3
+      accessModes:
+        - ReadWriteOnce
+      size: 2Gi
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+    # Datasources - Prometheus pre-configured
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            url: http://kube-prometheus-stack-prometheus:9090
+            access: proxy
+            isDefault: true
+            jsonData:
+              timeInterval: 30s
+
+    # Enable dashboard providers for auto-import
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: 'default'
+            orgId: 1
+            folder: ''
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/default
+
+    # Default dashboards
+    dashboards:
+      default:
+        # Kubernetes cluster monitoring
+        kubernetes-cluster:
+          gnetId: 7249
+          revision: 1
+          datasource: Prometheus
+
+        # Node Exporter Full
+        node-exporter:
+          gnetId: 1860
+          revision: 29
+          datasource: Prometheus
+
+        # Prometheus Stats
+        prometheus-stats:
+          gnetId: 2
+          revision: 2
+          datasource: Prometheus
+
+  # AlertManager configuration - disabled for cost optimization
+  alertmanager:
+    enabled: false
+
+  # Node Exporter configuration
+  nodeExporter:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+
+  # Kube State Metrics configuration
+  kube-state-metrics:
+    enabled: true
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  # Prometheus Node Exporter subchart
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi

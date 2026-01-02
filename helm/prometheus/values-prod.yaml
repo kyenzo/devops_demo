@@ -1,0 +1,87 @@
+# Production overrides for t3.small nodes (2 CPU, 2Gi RAM per node)
+# This configuration is optimized for cost and resource efficiency
+
+kube-prometheus-stack:
+  # Disable AlertManager to save resources in demo environment
+  alertmanager:
+    enabled: false
+
+  # Prometheus optimizations
+  prometheus:
+    prometheusSpec:
+      # Reduced resource requests for t3.small
+      resources:
+        requests:
+          cpu: 250m
+          memory: 800Mi
+        limits:
+          cpu: 500m
+          memory: 1.5Gi
+
+      # Node affinity to prefer t3.small nodes
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node.kubernetes.io/instance-type
+                    operator: In
+                    values:
+                      - t3.small
+
+      # Pod anti-affinity to spread pods across nodes
+      podAntiAffinity: soft
+
+  # Grafana optimizations
+  grafana:
+    resources:
+      requests:
+        cpu: 75m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+    # Reduced replicas for demo
+    replicas: 1
+
+  # Prometheus Operator optimizations
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 75m
+        memory: 200Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # Node Exporter optimizations
+  nodeExporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 30Mi
+      limits:
+        cpu: 100m
+        memory: 50Mi
+
+  # Kube State Metrics optimizations
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+
+  # Prometheus Node Exporter subchart
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 30Mi
+      limits:
+        cpu: 100m
+        memory: 50Mi
