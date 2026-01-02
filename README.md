@@ -111,15 +111,14 @@ terraform/
         └── variables.tf         # Environment variables
 
 helm/
-├── argocd/
-│   ├── bootstrap/                # ArgoCD installation configuration
-│   │   ├── values.yaml          # Default ArgoCD settings
-│   │   ├── values-prod.yaml     # Production overrides
-│   │   ├── Chart.yaml           # Chart metadata
-│   │   └── README.md            # Installation guide
-│   └── apps/                    # ArgoCD Application manifests
-│       ├── root-app.yaml        # Root Application (App-of-Apps)
-│       └── README.md
+├── argocd/                       # ArgoCD installation configuration
+│   ├── values.yaml              # Default ArgoCD settings
+│   ├── values-prod.yaml         # Production overrides
+│   ├── Chart.yaml               # Chart metadata
+│   └── README.md                # Installation guide
+├── apps/                         # Application manifests (managed by ArgoCD)
+│   ├── root-app.yaml            # Root Application (App-of-Apps)
+│   └── README.md
 ├── README.md                     # Helm and GitOps documentation
 ├── AUTOMATION.md                 # Terraform automation details
 └── QUICKSTART.md                 # Quick verification guide
@@ -294,18 +293,18 @@ backend "s3" {
 ### 5. GitOps with ArgoCD
 
 **App-of-Apps Pattern:**
-- Root application watches `helm/argocd/apps/` directory
+- Root application watches `helm/apps/` directory
 - Any new Application manifest is automatically deployed
 - Declarative application management via Git
 - Auto-sync and self-heal enabled
 
 **Deployment Workflow:**
 ```
-Developer → Commit YAML to helm/argocd/apps/ → Push to GitHub
-                                                      ↓
-                                            ArgoCD detects change
-                                                      ↓
-                                            Auto-sync to cluster
+Developer → Commit YAML to helm/apps/ → Push to GitHub
+                                              ↓
+                                    ArgoCD detects change
+                                              ↓
+                                    Auto-sync to cluster
 ```
 
 **Features:**

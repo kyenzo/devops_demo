@@ -25,15 +25,14 @@ terraform/
         └── main.tf            # Main configuration calling all modules
 
 helm/
-├── argocd/
-│   ├── bootstrap/              # ArgoCD installation configuration
-│   │   ├── values.yaml        # Default ArgoCD settings
-│   │   ├── values-prod.yaml   # Production overrides
-│   │   ├── Chart.yaml         # Chart metadata (reference)
-│   │   └── README.md          # Installation guide
-│   └── apps/                  # ArgoCD Application manifests
-│       ├── root-app.yaml      # Root Application (App-of-Apps)
-│       └── README.md
+├── argocd/                     # ArgoCD installation configuration
+│   ├── values.yaml            # Default ArgoCD settings
+│   ├── values-prod.yaml       # Production overrides
+│   ├── Chart.yaml             # Chart metadata (reference)
+│   └── README.md              # Installation guide
+├── apps/                       # Application manifests (managed by ArgoCD)
+│   ├── root-app.yaml          # Root Application (App-of-Apps)
+│   └── README.md
 ├── README.md                   # Main documentation
 ├── AUTOMATION.md               # How Terraform automation works
 └── QUICKSTART.md               # Quick verification guide
@@ -79,8 +78,8 @@ I need to have a complete AWS Infrastructure as code solution for hosting a high
 I need this project to be built step by step in purpose of learning, but at the end this project should be fine-tuned and presentable at a tech interview.
 
 ## GitOps Workflow
-ArgoCD is configured to watch the `helm/argocd/apps/` directory in the GitHub repository. To deploy new applications:
-1. Create an Application YAML manifest in `helm/argocd/apps/`
+ArgoCD is configured to watch the `helm/apps/` directory in the GitHub repository. To deploy new applications:
+1. Create an Application YAML manifest in `helm/apps/`
 2. Commit and push to GitHub
 3. ArgoCD automatically detects and deploys within 3 minutes (or force sync via UI)
 
@@ -89,9 +88,9 @@ The root-app implements the App-of-Apps pattern, excluding itself from sync to p
 ## Key Files
 - **terraform/modules/argocd/main.tf**: Helm provider deployment of ArgoCD and kubectl manifest application
 - **terraform/envs/prod/providers.tf**: Helm and kubectl provider configuration with EKS authentication
-- **helm/argocd/apps/root-app.yaml**: Root application watching apps directory with auto-sync, prune, and selfHeal enabled
-- **helm/argocd/bootstrap/values.yaml**: ArgoCD default configuration (repository settings, LoadBalancer service)
-- **helm/argocd/bootstrap/values-prod.yaml**: Production-specific overrides
+- **helm/apps/root-app.yaml**: Root application watching apps directory with auto-sync, prune, and selfHeal enabled
+- **helm/argocd/values.yaml**: ArgoCD default configuration (repository settings, LoadBalancer service)
+- **helm/argocd/values-prod.yaml**: Production-specific overrides
 
 ## Next Steps
 - Add sample application to demonstrate GitOps workflow

@@ -16,7 +16,7 @@ spec:
   source:
     repoURL: https://github.com/kyenzo/devops_demo.git
     targetRevision: HEAD  # Can be changed to specific branch/tag
-    path: helm/argocd/apps
+    path: helm/apps
     directory:
       recurse: true
       exclude: 'root-app.yaml'  # Exclude itself to prevent recursion

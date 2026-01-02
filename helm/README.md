@@ -6,18 +6,17 @@ This directory contains ArgoCD configuration for managing applications on the ja
 
 ```
 helm/
-├── argocd/
-│   ├── bootstrap/              # ArgoCD installation configuration
-│   │   ├── values.yaml        # Default ArgoCD settings
-│   │   ├── values-prod.yaml   # Production overrides
-│   │   ├── Chart.yaml         # Chart metadata (reference)
-│   │   └── README.md          # Installation guide
-│   └── apps/                  # ArgoCD Application manifests
-│       ├── root-app.yaml     # Root Application (App-of-Apps)
-│       └── README.md
-├── README.md                  # This file
-├── AUTOMATION.md              # How Terraform automation works
-└── QUICKSTART.md              # Quick verification guide
+├── argocd/                      # ArgoCD installation configuration
+│   ├── values.yaml             # Default ArgoCD settings
+│   ├── values-prod.yaml        # Production overrides
+│   ├── Chart.yaml              # Chart metadata (reference)
+│   └── README.md               # Installation guide
+├── apps/                        # Application manifests (managed by ArgoCD)
+│   ├── root-app.yaml           # Root Application (App-of-Apps)
+│   └── README.md
+├── README.md                    # This file
+├── AUTOMATION.md                # How Terraform automation works
+└── QUICKSTART.md                # Quick verification guide
 ```
 
 ## Automated Deployment
@@ -61,7 +60,7 @@ kubectl get applications -n argocd
 
 ## Directory Details
 
-### argocd/bootstrap/
+### argocd/
 ArgoCD installation configuration used by Terraform.
 
 **Active files:**
@@ -72,8 +71,8 @@ ArgoCD installation configuration used by Terraform.
 - `Chart.yaml` - Shows chart version being used
 - `README.md` - Manual installation steps (for reference)
 
-### argocd/apps/
-ArgoCD Application manifests implementing the App-of-Apps pattern.
+### apps/
+Application manifests managed by ArgoCD (App-of-Apps pattern).
 
 **Files:**
 - `root-app.yaml` - Root application that watches this directory
@@ -98,14 +97,14 @@ Developer makes change → Commit to Git → Push to GitHub
 
 ### Making Changes
 
-1. Edit any file in `helm/argocd/apps/`
+1. Edit any file in `helm/apps/`
 2. Commit and push to GitHub
 3. ArgoCD auto-syncs within 3 minutes
 4. Or manually sync in ArgoCD UI
 
 ## Adding Applications
 
-Create a new Application manifest in `helm/argocd/apps/`:
+Create a new Application manifest in `helm/apps/`:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
