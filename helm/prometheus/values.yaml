@@ -28,10 +28,10 @@ prometheus:
     storageSpec: {}
 
 # Grafana - dashboards
+# Password is auto-generated and stored in a Kubernetes secret
+# Retrieve with: kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 -d
 grafana:
   enabled: true
-  adminUser: admin
-  adminPassword: admin123
   resources:
     limits:
       cpu: 200m
