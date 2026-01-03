@@ -1,70 +1,80 @@
 # Minimal Prometheus + Grafana for basic cluster monitoring
-# Optimized for t3.small nodes
+# No persistence - data lost on pod restart (fine for learning)
 
-# Common labels
-commonLabels:
-  environment: prod
-  managedBy: argocd
-  project: eks-demo
-
-# Prometheus Operator - required
+# Prometheus Operator
 prometheusOperator:
   enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
-# Prometheus - core metrics collection
+# Prometheus - collects metrics
 prometheus:
   enabled: true
   prometheusSpec:
-    retention: 1d
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: gp3
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 2Gi
+    retention: 12h
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    # No persistent storage - keeps things simple
+    storageSpec: {}
 
-# Grafana - visualization
+# Grafana - dashboards
 grafana:
   enabled: true
   adminUser: admin
+  adminPassword: admin123
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # No persistent storage
   persistence:
-    enabled: true
-    storageClassName: gp3
-    size: 2Gi
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-        - name: Prometheus
-          type: prometheus
-          url: http://kube-prometheus-stack-prometheus:9090
-          access: proxy
-          isDefault: true
+    enabled: false
+  # Service type for easy access
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 
-# Disable everything else
-alertmanager:
-  enabled: false
-
+# Node Exporter - node-level metrics (CPU, memory, disk)
 nodeExporter:
   enabled: true
 
+# Kube State Metrics - kubernetes object metrics (pods, deployments, etc)
 kubeStateMetrics:
   enabled: true
 
-# Disable optional components
+# Alertmanager - disabled to keep it simple
+alertmanager:
+  enabled: false
+
+# Disable components that don't work well on EKS or aren't needed
 kubeApiServer:
   enabled: false
-kubelet:
-  enabled: true
 kubeControllerManager:
-  enabled: false
-coreDns:
-  enabled: false
-kubeEtcd:
   enabled: false
 kubeScheduler:
   enabled: false
+kubeEtcd:
+  enabled: false
 kubeProxy:
   enabled: false
+coreDns:
+  enabled: false
+
+# Keep kubelet metrics - these work on EKS
+kubelet:
+  enabled: true
