@@ -98,3 +98,4 @@ The root-app implements the App-of-Apps pattern, excluding itself from sync to p
 - Add ingress controller (NGINX via ArgoCD)
 - Implement CI/CD pipeline integration
 - Cost optimization and cleanup automation
+
