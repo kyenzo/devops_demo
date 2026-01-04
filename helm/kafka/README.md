@@ -27,8 +27,8 @@ Apache Kafka deployment using Strimzi Operator - a CNCF project for running Kafk
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| Strimzi Operator | 0.45.0 | Manages Kafka clusters via CRDs |
-| Kafka | 3.9.0 | Message broker (1 replica) |
+| Strimzi Operator | 0.49.1 | Manages Kafka clusters via CRDs |
+| Kafka | 4.0.0 | Message broker (1 replica) |
 | Zookeeper | - | Metadata management (1 replica) |
 | Kafka UI (Provectus) | 0.7.6 | Web interface for management |
 
@@ -152,7 +152,7 @@ kubectl exec -it kafka-kafka-0 -n kafka -- \
 
 ```bash
 kubectl run kafka-client --rm -it \
-  --image=quay.io/strimzi/kafka:0.45.0-kafka-3.9.0 \
+  --image=quay.io/strimzi/kafka:0.49.1-kafka-4.0.0 \
   --namespace=kafka -- bash
 
 # Inside the pod:
