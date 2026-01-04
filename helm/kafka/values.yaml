@@ -73,7 +73,15 @@ heapOpts: "-Xmx512m -Xms512m"
 
 # SASL disabled for simplicity (can enable later)
 sasl:
-  enabledMechanisms: []
+  client:
+    users: []
+    passwords: ""
+  interbroker:
+    user: ""
+    password: ""
+  controller:
+    user: ""
+    password: ""
 
 # Auto-create topics when producer sends to non-existent topic
 autoCreateTopicsEnable: true
