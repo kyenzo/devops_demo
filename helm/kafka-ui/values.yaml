@@ -1,11 +1,11 @@
 # Kafka UI - Web interface for Kafka management
-# Connects to Bitnami Kafka in the same namespace
+# Connects to Strimzi Kafka in the same namespace
 
 yamlApplicationConfig:
   kafka:
     clusters:
       - name: jack-devops-kafka
-        bootstrapServers: kafka:9092
+        bootstrapServers: kafka-kafka-bootstrap:9092
   auth:
     type: disabled
   management:

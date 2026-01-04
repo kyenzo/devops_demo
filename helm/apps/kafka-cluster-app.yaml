@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kafka-operator
+  name: kafka-cluster
   namespace: argocd
   labels:
     environment: prod
@@ -12,18 +12,10 @@ metadata:
 spec:
   project: default
 
-  # Multi-source: Strimzi Helm chart + values from our Git repo
-  sources:
-    - repoURL: https://strimzi.io/charts/
-      chart: strimzi-kafka-operator
-      targetRevision: 0.45.0
-      helm:
-        valueFiles:
-          - $values/helm/kafka/values.yaml
-
-    - repoURL: https://github.com/kyenzo/devops_demo.git
-      targetRevision: master
-      ref: values
+  source:
+    repoURL: https://github.com/kyenzo/devops_demo.git
+    targetRevision: master
+    path: helm/kafka/cluster
 
   destination:
     server: https://kubernetes.default.svc
@@ -37,8 +29,8 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
     retry:
-      limit: 3
+      limit: 5
       backoff:
-        duration: 10s
+        duration: 30s
         factor: 2
-        maxDuration: 2m
+        maxDuration: 5m

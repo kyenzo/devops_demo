@@ -1,5 +1,5 @@
 apiVersion: v2
 name: kafka-values
-description: Values configuration for Bitnami Kafka (chart pulled via ArgoCD multi-source)
+description: Values configuration for Strimzi Kafka Operator (chart pulled via ArgoCD multi-source)
 version: 1.0.0
 type: application
