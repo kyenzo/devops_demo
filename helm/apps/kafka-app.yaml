@@ -16,7 +16,7 @@ spec:
   sources:
     - repoURL: registry-1.docker.io/bitnamicharts
       chart: kafka
-      targetRevision: 32.4.3
+      targetRevision: 31.5.0
       helm:
         valueFiles:
           - $values/helm/kafka/values.yaml
