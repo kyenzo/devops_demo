@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kafka-ui-values
+description: Values configuration for Provectus Kafka UI (chart pulled via ArgoCD multi-source)
+version: 1.0.0
+type: application

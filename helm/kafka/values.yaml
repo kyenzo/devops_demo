@@ -1,0 +1,85 @@
+# Bitnami Kafka - Minimal configuration for learning
+# KRaft mode (no Zookeeper) with single broker
+
+# Use KRaft mode - no Zookeeper dependency
+kraft:
+  enabled: true
+  clusterId: ""  # Auto-generated
+
+# Controller configuration (acts as both controller and broker in combined mode)
+controller:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  # No persistent storage - data lost on restart (fine for learning)
+  persistence:
+    enabled: false
+
+# Broker configuration - disabled since controller handles broker role
+broker:
+  replicaCount: 0
+
+# Listeners configuration
+listeners:
+  client:
+    protocol: PLAINTEXT
+    sslClientAuth: ""
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    client: 9092
+    controller: 9093
+    interbroker: 9094
+
+# Disable external access (internal only)
+externalAccess:
+  enabled: false
+
+# Enable metrics for Prometheus integration
+metrics:
+  kafka:
+    enabled: true
+  jmx:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    labels:
+      release: monitoring
+
+# Disable provisioning (we'll create topics manually or via UI)
+provisioning:
+  enabled: false
+
+# Log configuration
+log:
+  dirs: /bitnami/kafka/data
+  retentionHours: 168
+  segmentBytes: 1073741824
+
+# Heap settings for t3.small nodes
+heapOpts: "-Xmx512m -Xms512m"
+
+# SASL disabled for simplicity (can enable later)
+sasl:
+  enabledMechanisms: []
+
+# Auto-create topics when producer sends to non-existent topic
+autoCreateTopicsEnable: true
+
+# Default replication factor (1 for single broker)
+defaultReplicationFactor: 1
+offsetsTopicReplicationFactor: 1
+transactionStateLogReplicationFactor: 1
+transactionStateLogMinIsr: 1

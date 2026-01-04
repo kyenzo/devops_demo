@@ -1,0 +1,35 @@
+# Kafka UI - Web interface for Kafka management
+# Connects to Bitnami Kafka in the same namespace
+
+yamlApplicationConfig:
+  kafka:
+    clusters:
+      - name: jack-devops-kafka
+        bootstrapServers: kafka:9092
+  auth:
+    type: disabled
+  management:
+    health:
+      ldap:
+        enabled: false
+
+# Service configuration - LoadBalancer for easy external access
+service:
+  type: LoadBalancer
+  port: 80
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+
+# Resource limits for t3.small nodes
+resources:
+  limits:
+    cpu: 200m
+    memory: 384Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Disable ingress (using LoadBalancer instead)
+ingress:
+  enabled: false
