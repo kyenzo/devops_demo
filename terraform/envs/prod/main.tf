@@ -82,7 +82,7 @@ module "eks" {
   public_subnet_ids  = module.vpc.public_subnet_ids
 
   # Node group configuration
-  instance_types = ["t3.small"]
+  instance_types = ["t3.large"]
   capacity_type  = "ON_DEMAND"
   desired_size   = 2
   min_size       = 1
