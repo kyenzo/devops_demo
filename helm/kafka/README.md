@@ -15,7 +15,7 @@ Apache Kafka deployment using Strimzi Operator - a CNCF project for running Kafk
 │           ▼                                             │
 │  ┌──────────────────┐    ┌──────────────────┐          │
 │  │  Kafka Broker    │◄───│    Kafka UI      │          │
-│  │  + Zookeeper     │    │  (Web Interface) │          │
+│  │  (KRaft mode)    │    │  (Web Interface) │          │
 │  │  Port: 9092      │    │   Port: 80       │          │
 │  └──────────────────┘    └──────────────────┘          │
 │           │                       │                     │
@@ -28,8 +28,7 @@ Apache Kafka deployment using Strimzi Operator - a CNCF project for running Kafk
 | Component | Version | Purpose |
 |-----------|---------|---------|
 | Strimzi Operator | 0.49.1 | Manages Kafka clusters via CRDs |
-| Kafka | 4.0.0 | Message broker (1 replica) |
-| Zookeeper | - | Metadata management (1 replica) |
+| Kafka | 4.0.0 | Message broker (1 replica, KRaft mode) |
 | Kafka UI (Provectus) | 0.7.6 | Web interface for management |
 
 ## ArgoCD Applications
@@ -74,21 +73,20 @@ kubectl get pods -n kafka
 
 Expected pods:
 - `strimzi-cluster-operator-*` - Strimzi operator
-- `kafka-kafka-0` - Kafka broker
-- `kafka-zookeeper-0` - Zookeeper
+- `kafka-controller-0` - Kafka broker (KRaft mode)
 - `kafka-entity-operator-*` - Topic/User operator
 - `kafka-ui-*` - Web UI
 
 ### View Kafka Logs
 
 ```bash
-kubectl logs -n kafka kafka-kafka-0 -f
+kubectl logs -n kafka kafka-controller-0 -f
 ```
 
 ### Create a Topic
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-topics.sh --create \
     --bootstrap-server localhost:9092 \
     --topic my-topic \
@@ -113,14 +111,14 @@ spec:
 ### List Topics
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-topics.sh --list --bootstrap-server localhost:9092
 ```
 
 ### Describe a Topic
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-topics.sh --describe \
     --bootstrap-server localhost:9092 \
     --topic my-topic
@@ -131,7 +129,7 @@ kubectl exec -it kafka-kafka-0 -n kafka -- \
 ### Start a Console Producer
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
     --topic test-topic
@@ -141,7 +139,7 @@ kubectl exec -it kafka-kafka-0 -n kafka -- \
 ### Start a Console Consumer
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 \
     --topic test-topic \
@@ -165,7 +163,7 @@ bin/kafka-console-consumer.sh --bootstrap-server kafka-kafka-bootstrap:9092 --to
 ### List Consumer Groups
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-consumer-groups.sh \
     --bootstrap-server localhost:9092 \
     --list
@@ -174,7 +172,7 @@ kubectl exec -it kafka-kafka-0 -n kafka -- \
 ### Describe Consumer Group
 
 ```bash
-kubectl exec -it kafka-kafka-0 -n kafka -- \
+kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-consumer-groups.sh \
     --bootstrap-server localhost:9092 \
     --group my-consumer-group \
@@ -208,7 +206,7 @@ kubectl get kafkauser -n kafka
 
 ```bash
 # Check events
-kubectl describe pod -n kafka kafka-kafka-0
+kubectl describe pod -n kafka kafka-controller-0
 
 # Check operator logs
 kubectl logs -n kafka deployment/strimzi-cluster-operator
@@ -238,8 +236,8 @@ kubectl logs -n kafka deployment/strimzi-cluster-operator
 
 | Setting | Value |
 |---------|-------|
-| Kafka Brokers | 1 |
-| Zookeeper Nodes | 1 |
+| Kafka Mode | KRaft (no Zookeeper) |
+| Kafka Brokers | 1 (controller+broker combined) |
 | Storage | Ephemeral (no persistence) |
 | Replication Factor | 1 |
 | Auto-create Topics | Enabled |
@@ -249,11 +247,9 @@ kubectl logs -n kafka deployment/strimzi-cluster-operator
 
 To scale to 3 Kafka brokers, edit `helm/kafka/cluster/kafka-cluster.yaml`:
 ```yaml
+# In KafkaNodePool resource
 spec:
-  kafka:
-    replicas: 3
-  zookeeper:
-    replicas: 3
+  replicas: 3
 ```
 
 ## Connecting Applications
