@@ -325,3 +325,5 @@ Bitnami removed their free container images from Docker Hub on August 28, 2025. 
 - [Strimzi GitHub](https://github.com/strimzi/strimzi-kafka-operator)
 - [Kafka UI Documentation](https://docs.kafka-ui.provectus.io/)
 - [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+
+
