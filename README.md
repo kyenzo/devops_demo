@@ -285,10 +285,11 @@ backend "s3" {
 ### 4. Cost Optimization
 
 - Single NAT Gateway instead of 3 (saves ~$64/month)
-- t3.small instances for worker nodes (cost-effective)
+- t3.large instances for worker nodes (2 nodes, ~$60/month)
 - Managed node groups (no additional management overhead)
 - Resource tagging for cost tracking
 - Destroy/recreate workflow for development
+- Ephemeral storage for Kafka and Prometheus (no EBS costs)
 
 ### 5. GitOps with ArgoCD
 
@@ -297,6 +298,18 @@ backend "s3" {
 - Any new Application manifest is automatically deployed
 - Declarative application management via Git
 - Auto-sync and self-heal enabled
+
+**Deployed Applications:**
+
+| Application | Description | Access |
+|-------------|-------------|--------|
+| **ArgoCD** | GitOps continuous delivery | LoadBalancer on port 80 |
+| **Prometheus** | Metrics collection and monitoring | Internal (9090) |
+| **Grafana** | Metrics visualization dashboards | Port-forward 3000 |
+| **Kafka** | Event streaming platform (Strimzi) | Internal bootstrap: 9092 |
+| **Kafka UI** | Web interface for Kafka management | LoadBalancer on port 80 |
+
+See individual README files in `helm/` directories for detailed documentation
 
 **Deployment Workflow:**
 ```
@@ -453,9 +466,21 @@ kubectl get pods -A
 - [x] Auto-sync and self-heal configuration
 - [x] Documentation (helm/README.md, AUTOMATION.md, QUICKSTART.md)
 
-### Phase 5: Future Enhancements (Planned)
-- [ ] Sample application deployment via ArgoCD
-- [ ] Monitoring and logging (Prometheus, Grafana via ArgoCD)
+### Phase 5: Monitoring and Observability (Completed)
+- [x] Prometheus deployment for metrics collection
+- [x] Grafana deployment for metrics visualization
+- [x] ServiceMonitor configuration for auto-discovery
+- [x] Integration with Kafka metrics
+
+### Phase 6: Event Streaming (Completed)
+- [x] Kafka deployment using Strimzi Operator
+- [x] KRaft mode configuration (no Zookeeper)
+- [x] Kafka UI for web-based management
+- [x] Multi-source ArgoCD applications
+- [x] Resource optimization for t3.large nodes
+
+### Phase 7: Future Enhancements (Planned)
+- [ ] Sample producer/consumer applications for Kafka
 - [ ] Ingress controller (NGINX via ArgoCD)
 - [ ] VPN setup for secure private cluster access
 - [ ] CI/CD pipeline integration

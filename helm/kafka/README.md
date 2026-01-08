@@ -36,7 +36,7 @@ Apache Kafka deployment using Strimzi Operator - a CNCF project for running Kafk
 | Application | Description |
 |-------------|-------------|
 | kafka-operator | Installs Strimzi Operator |
-| kafka-cluster | Creates Kafka + Zookeeper cluster |
+| kafka-cluster | Creates Kafka cluster (KRaft mode, no Zookeeper) |
 | kafka-ui | Web interface for Kafka |
 
 ## Quick Access
@@ -242,6 +242,8 @@ kubectl logs -n kafka deployment/strimzi-cluster-operator
 | Replication Factor | 1 |
 | Auto-create Topics | Enabled |
 | Log Retention | 168 hours (7 days) |
+| Listeners | Plain (9092), TLS (9093) |
+| Node Size | t3.large (2 vCPU, 8Gi RAM) |
 
 ### Scaling (Future)
 
@@ -296,13 +298,26 @@ await consumer.run({
 });
 ```
 
-## Why Strimzi Instead of Bitnami?
+## Deployment Notes
+
+### Resource Requirements
+
+This deployment requires **t3.large nodes** (2 vCPU, 8Gi RAM) to run all components:
+- Kafka controller: 250m CPU, 512Mi RAM (limits: 500m CPU, 1Gi RAM)
+- Entity operator (2 containers): 200m CPU, 512Mi RAM total
+- Kafka UI: 100m CPU, 256Mi RAM
+- Strimzi operator: 200m CPU, 256Mi RAM
+
+**Note**: t3.small nodes (2 vCPU, 2Gi RAM) are insufficient due to pod scheduling constraints.
+
+### Why Strimzi Instead of Bitnami?
 
 Bitnami removed their free container images from Docker Hub on August 28, 2025. Strimzi is:
 - A CNCF incubating project with active maintenance
-- Uses official Apache Kafka images
+- Uses official Apache Kafka images (quay.io/strimzi)
 - Provides Kubernetes-native management via CRDs
 - Better suited for production Kafka deployments
+- Supports modern KRaft mode (no Zookeeper required)
 
 ## Sources
 
