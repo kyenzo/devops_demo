@@ -517,4 +517,3 @@ This project is for educational and demonstration purposes.
 
 Built as part of a DevOps learning journey and interview preparation process.
 
-
