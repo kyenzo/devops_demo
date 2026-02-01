@@ -127,3 +127,4 @@ module "argocd" {
     module.eks
   ]
 }
+
