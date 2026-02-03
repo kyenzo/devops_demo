@@ -14,6 +14,8 @@ spec:
       - "env:prod"
       - "purpose:test"
   features:
+    apm:
+      enabled: true
     clusterChecks:
       enabled: true
     orchestratorExplorer:
@@ -21,6 +23,9 @@ spec:
     logCollection:
       enabled: true
       containerCollectAll: true
+      excludeContainers:
+      - name: "*"
+        namespace: "argocd"
     otelCollector:
       enabled: true
       ports:
