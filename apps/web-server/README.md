@@ -25,12 +25,12 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Access at `http://localhost:8080`
+Access at `http://localhost:8086`
 
 ### Build Docker image
 ```bash
 docker build -t web-server:1.0.0 .
-docker run -p 8080:8080 web-server:1.0.0
+docker run -p 8086:8086 web-server:1.0.0
 ```
 
 ## Deployment
