@@ -13,6 +13,11 @@ spec:
     tags:
       - "env:prod"
       - "purpose:test"
+  override:
+    nodeAgent:
+      env:
+        - name: DD_CONTAINER_EXCLUDE_LOGS
+          value: "kube_namespace:argocd"
   features:
     apm:
       enabled: true
@@ -23,9 +28,6 @@ spec:
     logCollection:
       enabled: true
       containerCollectAll: true
-      excludeContainers:
-      - name: "*"
-        namespace: "argocd"
     otelCollector:
       enabled: true
       ports:
