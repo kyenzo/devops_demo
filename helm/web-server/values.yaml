@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 449873021552.dkr.ecr.ca-west-1.amazonaws.com/apps/web-server
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: "latest"
 
 service:
