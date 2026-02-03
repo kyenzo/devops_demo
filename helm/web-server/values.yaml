@@ -8,7 +8,7 @@ image:
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080
+  targetPort: 8086
 
 resources:
   limits:
@@ -22,9 +22,9 @@ podAnnotations:
   # Datadog autodiscovery annotations
   ad.datadoghq.com/web-server.check_names: '["prometheus"]'
   ad.datadoghq.com/web-server.init_configs: '[{}]'
-  ad.datadoghq.com/web-server.instances: '[{"prometheus_url": "http://%%host%%:8080/metrics", "namespace": "web-server", "metrics": ["*"]}]'
+  ad.datadoghq.com/web-server.instances: '[{"prometheus_url": "http://%%host%%:8086/metrics", "namespace": "web-server", "metrics": ["*"]}]'
   ad.datadoghq.com/web-server.logs: '[{"source": "python", "service": "web-server"}]'
 
 env:
   - name: PORT
-    value: "8080"
+    value: "8086"
