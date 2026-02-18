@@ -51,7 +51,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 # Access: https://localhost:8080 (admin / password-from-above)
 ```
 
-### 2. Verify Applications
+### 2. Verify Applications 
 
 ```bash
 kubectl get applications -n argocd
