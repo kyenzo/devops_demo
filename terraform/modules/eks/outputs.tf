@@ -38,3 +38,8 @@ output "node_group_status" {
   description = "Status of the EKS node group"
   value       = aws_eks_node_group.this.status
 }
+
+output "cluster_oidc_issuer_url" {
+  description = "OIDC issuer URL for IRSA configuration"
+  value       = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}

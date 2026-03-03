@@ -32,3 +32,9 @@ variable "cluster_endpoint" {
   description = "EKS cluster endpoint (used for dependency)"
   type        = string
 }
+
+variable "irsa_role_arn" {
+  description = "IAM role ARN for ArgoCD IRSA (allows ArgoCD to authenticate to remote EKS clusters)"
+  type        = string
+  default     = ""
+}

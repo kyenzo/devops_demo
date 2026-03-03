@@ -122,6 +122,98 @@ module "eks" {
   }
 }
 
+# IRSA: OIDC provider for prod EKS cluster
+data "tls_certificate" "eks_oidc" {
+  url = module.eks.cluster_oidc_issuer_url
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks_oidc.certificates[0].sha1_fingerprint]
+  url             = module.eks.cluster_oidc_issuer_url
+
+  tags = {
+    Environment = "prod"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
+}
+
+# IRSA: IAM role for ArgoCD service accounts
+data "aws_iam_policy_document" "argocd_irsa_trust" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringLike"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
+      values = [
+        "system:serviceaccount:argocd:argocd-application-controller",
+        "system:serviceaccount:argocd:argocd-server",
+        "system:serviceaccount:argocd:argocd-applicationset-controller",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "argocd_irsa" {
+  name               = "${local.prefix}argocd-irsa-role"
+  assume_role_policy = data.aws_iam_policy_document.argocd_irsa_trust.json
+
+  tags = {
+    Environment = "prod"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
+}
+
+resource "aws_iam_role_policy" "argocd_eks_access" {
+  name = "argocd-eks-access"
+  role = aws_iam_role.argocd_irsa.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["eks:DescribeCluster"]
+      Resource = "*"
+    }]
+  })
+}
+
+# IRSA: Grant ArgoCD IAM role cluster-admin access to the distant EKS cluster
+resource "aws_eks_access_entry" "argocd_distant" {
+  provider = aws.distant
+
+  cluster_name  = "jack-devops-distant-eks-cluster"
+  principal_arn = aws_iam_role.argocd_irsa.arn
+  type          = "STANDARD"
+
+  tags = {
+    Environment = "distant"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
+}
+
+resource "aws_eks_access_policy_association" "argocd_distant_admin" {
+  provider = aws.distant
+
+  cluster_name  = "jack-devops-distant-eks-cluster"
+  principal_arn = aws_iam_role.argocd_irsa.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.argocd_distant]
+}
+
 # Read distant cluster outputs - apply distant env first before prod
 data "terraform_remote_state" "distant" {
   backend = "s3"
@@ -151,6 +243,7 @@ resource "kubectl_manifest" "argocd_distant_cluster" {
       config = jsonencode({
         awsAuthConfig = {
           clusterName = "jack-devops-distant-eks-cluster"
+          roleARN     = aws_iam_role.argocd_irsa.arn
         }
         tlsClientConfig = {
           insecure = false
@@ -176,8 +269,12 @@ module "argocd" {
   # Enable GitOps components
   enable_root_app = true
 
+  # IRSA: allow ArgoCD to authenticate to remote EKS clusters
+  irsa_role_arn = aws_iam_role.argocd_irsa.arn
+
   # Module depends on EKS being fully ready
   depends_on = [
-    module.eks
+    module.eks,
+    aws_iam_role.argocd_irsa,
   ]
 }

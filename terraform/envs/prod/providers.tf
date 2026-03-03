@@ -14,11 +14,21 @@ terraform {
       source  = "gavinbunney/kubectl"
       version = "~> 1.14"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 }
 
 provider "aws" {
   region = "ca-west-1"
+}
+
+# Provider for managing resources in the distant cluster's region
+provider "aws" {
+  alias  = "distant"
+  region = "ap-southeast-1"
 }
 
 # Data source to get EKS cluster auth token

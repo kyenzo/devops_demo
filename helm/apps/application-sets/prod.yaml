@@ -31,7 +31,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
-      project: default
+      project: prod
       source:
         repoURL: https://github.com/kyenzo/devops_demo.git
         targetRevision: master
@@ -94,7 +94,7 @@ spec:
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
-      project: default
+      project: prod
       sources:
         - repoURL: "{{chartRepo}}"
           chart: "{{chart}}"

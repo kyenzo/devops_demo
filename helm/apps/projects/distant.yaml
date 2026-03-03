@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: distant
+  namespace: argocd
+  labels:
+    environment: distant
+    managedBy: argocd
+    project: eks-demo
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Distant cluster applications (ap-southeast-1)
+
+  sourceRepos:
+    - https://github.com/kyenzo/devops_demo.git
+
+  destinations:
+    - name: distant
+      namespace: "*"
+
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

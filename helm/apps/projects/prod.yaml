@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: prod
+  namespace: argocd
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Production cluster applications (ca-west-1)
+
+  sourceRepos:
+    - https://github.com/kyenzo/devops_demo.git
+    - https://strimzi.io/charts/
+    - https://provectus.github.io/kafka-ui-charts
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

@@ -16,6 +16,31 @@ resource "helm_release" "argocd" {
     file("${path.module}/../../../helm/argocd/values-prod.yaml")
   ]
 
+  # IRSA: annotate service accounts so pods can assume the IAM role
+  dynamic "set" {
+    for_each = var.irsa_role_arn != "" ? [var.irsa_role_arn] : []
+    content {
+      name  = "controller.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = set.value
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.irsa_role_arn != "" ? [var.irsa_role_arn] : []
+    content {
+      name  = "server.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = set.value
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.irsa_role_arn != "" ? [var.irsa_role_arn] : []
+    content {
+      name  = "applicationSet.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = set.value
+    }
+  }
+
   # Wait for ArgoCD to be ready
   wait          = true
   wait_for_jobs = true
