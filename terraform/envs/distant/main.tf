@@ -28,7 +28,7 @@ module "vpc" {
   nat_gateway_count       = 1
 
   # VPC Peering - Accepter side
-  # Step 3: After prod creates peering connection, fill in prod_peering_connection_id above and set accept_peering_connection = true
+  # Step 3: After prod creates peering connection, fill in prod_peering_connection_id above
   accept_peering_connection = local.prod_peering_connection_id != null
   peering_connection_id     = local.prod_peering_connection_id
   peer_vpc_cidr             = local.prod_vpc_cidr
@@ -41,19 +41,82 @@ module "vpc" {
   }
 }
 
-output "vpc_id" {
-  description = "ID of the distant VPC - needed for prod peering connection"
-  value       = module.vpc.vpc_id
+module "iam_roles" {
+  source = "../../modules/iam-roles"
+
+  create_eks_cluster_role    = true
+  create_eks_node_group_role = true
+
+  eks_cluster_role_name    = "${local.prefix}distant-eks-cluster-role"
+  eks_node_group_role_name = "${local.prefix}distant-eks-node-group-role"
+
+  tags = {
+    Environment = "distant"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
 }
 
-output "vpc_cidr" {
-  value = module.vpc.vpc_cidr
+module "security_groups" {
+  source = "../../modules/security-groups"
+
+  vpc_id = module.vpc.vpc_id
+
+  create_eks_cluster_sg = true
+  create_eks_nodes_sg   = true
+
+  eks_cluster_sg_name = "${local.prefix}distant-eks-cluster-sg"
+  eks_nodes_sg_name   = "${local.prefix}distant-eks-nodes-sg"
+
+  tags = {
+    Environment = "distant"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
 }
 
-output "public_subnet_ids" {
-  value = module.vpc.public_subnet_ids
-}
+module "eks" {
+  source = "../../modules/eks"
 
-output "private_subnet_ids" {
-  value = module.vpc.private_subnet_ids
+  cluster_name    = "${local.prefix}distant-eks-cluster"
+  cluster_version = "1.34"
+
+  # IAM roles
+  cluster_role_arn    = module.iam_roles.eks_cluster_role_arn
+  node_group_role_arn = module.iam_roles.eks_node_group_role_arn
+
+  # Security groups
+  cluster_security_group_ids = [module.security_groups.eks_cluster_security_group_id]
+
+  # Networking
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+  public_subnet_ids  = module.vpc.public_subnet_ids
+
+  # Node group - smaller than prod since this is for CDN demo only
+  instance_types = ["t3.medium"]
+  capacity_type  = "ON_DEMAND"
+  desired_size   = 2
+  min_size       = 1
+  max_size       = 3
+  disk_size      = 20
+
+  # API endpoint access
+  endpoint_private_access = true
+  endpoint_public_access  = true
+  public_access_cidrs     = ["0.0.0.0/0"]
+
+  # Admin access - same AWS account
+  admin_access_principal_arn = "arn:aws:iam::449873021552:root"
+
+  # Enable essential add-ons
+  enable_vpc_cni_addon    = true
+  enable_coredns_addon    = true
+  enable_kube_proxy_addon = true
+
+  tags = {
+    Environment = "distant"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
 }
