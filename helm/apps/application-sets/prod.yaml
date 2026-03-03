@@ -132,8 +132,8 @@ spec:
       ignoreDifferences:
         - group: batch
           kind: CronJob
-          jsonPointers:
-            - /status
+          managedFieldsManagers:
+            - kube-controller-manager
       syncPolicy:
         automated:
           prune: true
