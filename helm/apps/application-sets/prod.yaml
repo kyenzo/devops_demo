@@ -129,6 +129,11 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"
+      ignoreDifferences:
+        - group: batch
+          kind: CronJob
+          jsonPointers:
+            - /status
       syncPolicy:
         automated:
           prune: true
@@ -136,6 +141,7 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
+          - RespectIgnoreDifferences=true
         retry:
           limit: 3
           backoff:
