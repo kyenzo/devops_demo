@@ -57,16 +57,25 @@ webhooksCleanup:
     tag: "latest"
     pullPolicy: Always
 
-# Disable cleanup CronJobs - only needed at scale (10k+ admission reports).
-# Not required for a demo setup.
+# Scheduled CronJobs for ongoing resource cleanup
 cleanupJobs:
   admissionReports:
-    enabled: false
+    image:
+      tag: "latest"
+      pullPolicy: Always
   clusterAdmissionReports:
-    enabled: false
+    image:
+      tag: "latest"
+      pullPolicy: Always
   ephemeralReports:
-    enabled: false
+    image:
+      tag: "latest"
+      pullPolicy: Always
   clusterEphemeralReports:
-    enabled: false
+    image:
+      tag: "latest"
+      pullPolicy: Always
   updateRequests:
-    enabled: false
+    image:
+      tag: "latest"
+      pullPolicy: Always
