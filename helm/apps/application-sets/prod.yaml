@@ -132,8 +132,15 @@ spec:
       ignoreDifferences:
         - group: batch
           kind: CronJob
-          managedFieldsManagers:
-            - kube-controller-manager
+          jqPathExpressions:
+            - .status
+            - .spec.jobTemplate.spec.template.spec.containers[].terminationMessagePath
+            - .spec.jobTemplate.spec.template.spec.containers[].terminationMessagePolicy
+            - .spec.jobTemplate.spec.template.spec.dnsPolicy
+            - .spec.jobTemplate.spec.template.spec.schedulerName
+            - .spec.jobTemplate.spec.template.spec.securityContext
+            - .spec.jobTemplate.spec.template.spec.serviceAccount
+            - .spec.jobTemplate.spec.template.spec.terminationGracePeriodSeconds
       syncPolicy:
         automated:
           prune: true
