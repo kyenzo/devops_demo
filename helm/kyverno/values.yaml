@@ -41,14 +41,32 @@ reportsController:
       cpu: 100m
       memory: 128Mi
 
-# Override the bitnami/kubectl image used by internal cleanup CronJobs.
+# Override ALL bitnami/kubectl images in the chart.
 # Since September 2025, Bitnami only publishes 'latest' on Docker Hub free tier;
-# specific version tags (e.g. 1.28.5, 1.28) are no longer available.
+# specific version tags (e.g. 1.28.5) are no longer available.
+
+# Post-upgrade hook: cleans up old policy reports on every Helm upgrade/sync
+policyReportsCleanup:
+  image:
+    tag: "latest"
+
+# Pre-delete hook: cleans up webhooks when Helm release is deleted
+webhooksCleanup:
+  image:
+    tag: "latest"
+
+# Scheduled CronJobs for ongoing resource cleanup
 cleanupJobs:
   admissionReports:
     image:
       tag: "latest"
   clusterAdmissionReports:
+    image:
+      tag: "latest"
+  ephemeralReports:
+    image:
+      tag: "latest"
+  clusterEphemeralReports:
     image:
       tag: "latest"
   updateRequests:
