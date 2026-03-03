@@ -40,3 +40,17 @@ reportsController:
     requests:
       cpu: 100m
       memory: 128Mi
+
+# Override the bitnami/kubectl image used by internal cleanup CronJobs.
+# The patch-version tag (e.g. 1.28.5) is not published on Docker Hub;
+# using the minor-version tag (1.28) which is always available.
+cleanupJobs:
+  admissionReports:
+    image:
+      tag: "1.28"
+  clusterAdmissionReports:
+    image:
+      tag: "1.28"
+  updateRequests:
+    image:
+      tag: "1.28"
