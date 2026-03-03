@@ -32,9 +32,7 @@ spec:
         targetRevision: master
         path: "{{path}}"
       destination:
-        # Fill in after: terraform -chdir=terraform/envs/distant output cluster_endpoint
-        # Register cluster: argocd cluster add <kubectl-context> --name distant
-        server: DISTANT_CLUSTER_ENDPOINT
+        name: distant
         namespace: "{{namespace}}"
       syncPolicy:
         automated:

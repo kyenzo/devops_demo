@@ -122,6 +122,47 @@ module "eks" {
   }
 }
 
+# Read distant cluster outputs - apply distant env first before prod
+data "terraform_remote_state" "distant" {
+  backend = "s3"
+  config = {
+    bucket = "jack-devops-terraform-state"
+    key    = "distant/terraform.tfstate"
+    region = "ca-west-1"
+  }
+}
+
+# Register distant cluster in ArgoCD by creating a cluster secret
+# ArgoCD uses awsAuthConfig for EKS clusters - no static credentials needed
+resource "kubectl_manifest" "argocd_distant_cluster" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    metadata = {
+      name      = "cluster-distant"
+      namespace = "argocd"
+      labels = {
+        "argocd.argoproj.io/secret-type" = "cluster"
+      }
+    }
+    stringData = {
+      name   = "distant"
+      server = data.terraform_remote_state.distant.outputs.cluster_endpoint
+      config = jsonencode({
+        awsAuthConfig = {
+          clusterName = "jack-devops-distant-eks-cluster"
+        }
+        tlsClientConfig = {
+          insecure = false
+          caData   = data.terraform_remote_state.distant.outputs.cluster_certificate_authority_data
+        }
+      })
+    }
+  })
+
+  depends_on = [module.argocd]
+}
+
 module "argocd" {
   source = "../../modules/argocd"
 
