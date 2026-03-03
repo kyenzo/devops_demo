@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   prefix = "jack-devops-"
 
@@ -12,6 +14,10 @@ locals {
   distant_vpc_id   = null # e.g. "vpc-0abc123"
   distant_vpc_cidr = "10.1.0.0/16"
   distant_region   = "ap-southeast-1"
+
+  # Construct ARN from known values so it is resolved at plan time,
+  # avoiding the Helm provider "inconsistent final plan" bug with dynamic set blocks
+  argocd_irsa_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.prefix}argocd-irsa-role"
 }
 
 module "vpc" {
@@ -190,7 +196,7 @@ resource "aws_eks_access_entry" "argocd_distant" {
   provider = aws.distant
 
   cluster_name  = "jack-devops-distant-eks-cluster"
-  principal_arn = aws_iam_role.argocd_irsa.arn
+  principal_arn = local.argocd_irsa_role_arn
   type          = "STANDARD"
 
   tags = {
@@ -204,7 +210,7 @@ resource "aws_eks_access_policy_association" "argocd_distant_admin" {
   provider = aws.distant
 
   cluster_name  = "jack-devops-distant-eks-cluster"
-  principal_arn = aws_iam_role.argocd_irsa.arn
+  principal_arn = local.argocd_irsa_role_arn
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
@@ -243,7 +249,7 @@ resource "kubectl_manifest" "argocd_distant_cluster" {
       config = jsonencode({
         awsAuthConfig = {
           clusterName = "jack-devops-distant-eks-cluster"
-          roleARN     = aws_iam_role.argocd_irsa.arn
+          roleARN     = local.argocd_irsa_role_arn
         }
         tlsClientConfig = {
           insecure = false
@@ -270,7 +276,7 @@ module "argocd" {
   enable_root_app = true
 
   # IRSA: allow ArgoCD to authenticate to remote EKS clusters
-  irsa_role_arn = aws_iam_role.argocd_irsa.arn
+  irsa_role_arn = local.argocd_irsa_role_arn
 
   # Module depends on EKS being fully ready
   depends_on = [
