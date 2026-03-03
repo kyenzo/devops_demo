@@ -2,6 +2,10 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-labels
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
   annotations:
     policies.kyverno.io/title: Require Standard Labels
     policies.kyverno.io/description: >-

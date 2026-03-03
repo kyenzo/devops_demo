@@ -2,6 +2,10 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-resource-limits
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
   annotations:
     policies.kyverno.io/title: Require Resource Limits
     policies.kyverno.io/description: >-
