@@ -1,0 +1,123 @@
+# ApplicationSet for git-path apps (single source from our repo)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: prod-git-apps
+  namespace: argocd
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
+spec:
+  generators:
+    - list:
+        elements:
+          - name: web-server
+            namespace: web-server
+            path: helm/web-server
+
+          - name: kafka-cluster
+            namespace: kafka
+            path: helm/kafka/cluster
+
+  template:
+    metadata:
+      name: "{{name}}"
+      namespace: argocd
+      labels:
+        environment: prod
+        managedBy: argocd
+        project: eks-demo
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/kyenzo/devops_demo.git
+        targetRevision: master
+        path: "{{path}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m
+
+---
+
+# ApplicationSet for external Helm chart apps (multi-source)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: prod-helm-apps
+  namespace: argocd
+  labels:
+    environment: prod
+    managedBy: argocd
+    project: eks-demo
+spec:
+  generators:
+    - list:
+        elements:
+          - name: kafka-operator
+            namespace: kafka
+            chartRepo: https://strimzi.io/charts/
+            chart: strimzi-kafka-operator
+            chartVersion: "0.49.1"
+            valuesFile: helm/kafka/values.yaml
+
+          - name: kafka-ui
+            namespace: kafka
+            chartRepo: https://provectus.github.io/kafka-ui-charts
+            chart: kafka-ui
+            chartVersion: "0.7.6"
+            valuesFile: helm/kafka-ui/values.yaml
+
+  template:
+    metadata:
+      name: "{{name}}"
+      namespace: argocd
+      labels:
+        environment: prod
+        managedBy: argocd
+        project: eks-demo
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      sources:
+        - repoURL: "{{chartRepo}}"
+          chart: "{{chart}}"
+          targetRevision: "{{chartVersion}}"
+          helm:
+            valueFiles:
+              - "$values/{{valuesFile}}"
+        - repoURL: https://github.com/kyenzo/devops_demo.git
+          targetRevision: master
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m

@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: distant-apps
+  namespace: argocd
+  labels:
+    environment: distant
+    managedBy: argocd
+    project: eks-demo
+spec:
+  generators:
+    - list:
+        elements:
+          - name: web-server-distant
+            namespace: web-server
+            path: helm/web-server
+
+  template:
+    metadata:
+      name: "{{name}}"
+      namespace: argocd
+      labels:
+        environment: distant
+        managedBy: argocd
+        project: eks-demo
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/kyenzo/devops_demo.git
+        targetRevision: master
+        path: "{{path}}"
+      destination:
+        # Fill in after: terraform -chdir=terraform/envs/distant output cluster_endpoint
+        # Register cluster: argocd cluster add <kubectl-context> --name distant
+        server: DISTANT_CLUSTER_ENDPOINT
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m
