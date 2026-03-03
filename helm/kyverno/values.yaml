@@ -49,26 +49,33 @@ reportsController:
 policyReportsCleanup:
   image:
     tag: "latest"
+    pullPolicy: Always
 
 # Pre-delete hook: cleans up webhooks when Helm release is deleted
 webhooksCleanup:
   image:
     tag: "latest"
+    pullPolicy: Always
 
 # Scheduled CronJobs for ongoing resource cleanup
 cleanupJobs:
   admissionReports:
     image:
       tag: "latest"
+      pullPolicy: Always
   clusterAdmissionReports:
     image:
       tag: "latest"
+      pullPolicy: Always
   ephemeralReports:
     image:
       tag: "latest"
+      pullPolicy: Always
   clusterEphemeralReports:
     image:
       tag: "latest"
+      pullPolicy: Always
   updateRequests:
     image:
       tag: "latest"
+      pullPolicy: Always
