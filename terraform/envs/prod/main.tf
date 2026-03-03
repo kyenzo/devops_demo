@@ -6,6 +6,12 @@ locals {
   availability_zones   = ["ca-west-1a", "ca-west-1b", "ca-west-1c"]
   public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
   private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+
+  # VPC Peering - Step 2: Fill in after distant env is applied
+  # Run: cd ../distant && terraform output vpc_id
+  distant_vpc_id   = null # e.g. "vpc-0abc123"
+  distant_vpc_cidr = "10.1.0.0/16"
+  distant_region   = "ap-southeast-1"
 }
 
 module "vpc" {
@@ -21,6 +27,13 @@ module "vpc" {
   create_internet_gateway = true
   create_nat_gateway      = true
   nat_gateway_count       = 1  # Cost-saving: 1 NAT gateway instead of 3
+
+  # VPC Peering - Requester side
+  # Step 2: After applying distant env, fill in distant_vpc_id above and set create_peering_connection = true
+  create_peering_connection = local.distant_vpc_id != null
+  peer_vpc_id               = local.distant_vpc_id
+  peer_vpc_cidr             = local.distant_vpc_cidr
+  peer_region               = local.distant_region
 
   tags = {
     Environment = "prod"

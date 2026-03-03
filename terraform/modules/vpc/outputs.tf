@@ -37,3 +37,8 @@ output "private_route_table_ids" {
   description = "IDs of private route tables"
   value       = aws_route_table.private[*].id
 }
+
+output "peering_connection_id" {
+  description = "ID of the VPC peering connection (requester side)"
+  value       = try(aws_vpc_peering_connection.requester[0].id, null)
+}

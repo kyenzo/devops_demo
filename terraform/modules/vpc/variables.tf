@@ -60,3 +60,42 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# VPC Peering - Requester side
+variable "create_peering_connection" {
+  description = "Create a VPC peering connection (requester side)"
+  type        = bool
+  default     = false
+}
+
+variable "peer_vpc_id" {
+  description = "ID of the peer VPC (required when create_peering_connection = true)"
+  type        = string
+  default     = null
+}
+
+variable "peer_region" {
+  description = "Region of the peer VPC (for cross-region peering)"
+  type        = string
+  default     = null
+}
+
+# VPC Peering - Accepter side
+variable "accept_peering_connection" {
+  description = "Accept an incoming VPC peering connection (accepter side)"
+  type        = bool
+  default     = false
+}
+
+variable "peering_connection_id" {
+  description = "ID of the peering connection to accept (required when accept_peering_connection = true)"
+  type        = string
+  default     = null
+}
+
+# Shared peering routing
+variable "peer_vpc_cidr" {
+  description = "CIDR block of the peer VPC - used to add routes in route tables"
+  type        = string
+  default     = null
+}

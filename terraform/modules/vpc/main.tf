@@ -143,3 +143,58 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index % var.nat_gateway_count].id
 }
+
+# -------------------------------------------------------
+# VPC Peering
+# -------------------------------------------------------
+
+locals {
+  # Resolve the peering connection ID for use in route tables
+  effective_peering_connection_id = var.create_peering_connection ? try(aws_vpc_peering_connection.requester[0].id, null) : var.peering_connection_id
+}
+
+# Requester: create the peering connection
+resource "aws_vpc_peering_connection" "requester" {
+  count = var.create_peering_connection ? 1 : 0
+
+  vpc_id        = aws_vpc.this.id
+  peer_vpc_id   = var.peer_vpc_id
+  peer_region   = var.peer_region
+  auto_accept   = false # Cross-region peering cannot be auto-accepted
+
+  tags = merge(var.tags, {
+    Name = "${var.vpc_name}-peering-requester"
+    Side = "requester"
+  })
+}
+
+# Accepter: accept the incoming peering connection
+resource "aws_vpc_peering_connection_accepter" "accepter" {
+  count = var.accept_peering_connection ? 1 : 0
+
+  vpc_peering_connection_id = var.peering_connection_id
+  auto_accept               = true
+
+  tags = merge(var.tags, {
+    Name = "${var.vpc_name}-peering-accepter"
+    Side = "accepter"
+  })
+}
+
+# Route to peer VPC in public route table
+resource "aws_route" "public_peering" {
+  count = var.peer_vpc_cidr != null && local.effective_peering_connection_id != null && var.create_internet_gateway && length(var.public_subnet_cidrs) > 0 ? 1 : 0
+
+  route_table_id            = aws_route_table.public[0].id
+  destination_cidr_block    = var.peer_vpc_cidr
+  vpc_peering_connection_id = local.effective_peering_connection_id
+}
+
+# Route to peer VPC in private route tables
+resource "aws_route" "private_peering" {
+  count = var.peer_vpc_cidr != null && local.effective_peering_connection_id != null && var.create_nat_gateway ? var.nat_gateway_count : 0
+
+  route_table_id            = aws_route_table.private[count.index].id
+  destination_cidr_block    = var.peer_vpc_cidr
+  vpc_peering_connection_id = local.effective_peering_connection_id
+}
