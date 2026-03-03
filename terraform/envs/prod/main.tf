@@ -249,7 +249,6 @@ resource "kubectl_manifest" "argocd_distant_cluster" {
       config = jsonencode({
         awsAuthConfig = {
           clusterName = "jack-devops-distant-eks-cluster"
-          roleARN     = local.argocd_irsa_role_arn
         }
         tlsClientConfig = {
           insecure = false
