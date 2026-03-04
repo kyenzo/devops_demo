@@ -31,6 +31,10 @@ spec:
         repoURL: https://github.com/kyenzo/devops_demo.git
         targetRevision: master
         path: "{{path}}"
+        helm:
+          parameters:
+            - name: env.CLUSTER_NAME
+              value: distant
       destination:
         name: distant
         namespace: "{{namespace}}"

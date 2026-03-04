@@ -34,5 +34,5 @@ ingress:
     nginx.ingress.kubernetes.io/use-regex: "true"
 
 env:
-  - name: PORT
-    value: "8086"
+  PORT: "8086"
+  CLUSTER_NAME: "prod"

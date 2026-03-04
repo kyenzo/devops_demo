@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Request counter
 request_count = 0
+cluster_name = os.getenv('CLUSTER_NAME', 'unknown')
 
 @app.route('/')
 def home():
@@ -23,6 +24,7 @@ def home():
     logger.info(f"Home endpoint accessed. Total requests: {request_count}")
     return jsonify({
         "message": "Web Server for Datadog Monitoring",
+        "cluster": cluster_name,
         "request_count": request_count,
         "version": "1.0.0"
     })
