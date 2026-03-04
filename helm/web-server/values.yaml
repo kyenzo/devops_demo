@@ -25,6 +25,14 @@ podAnnotations:
   ad.datadoghq.com/web-server.instances: '[{"prometheus_url": "http://%%host%%:8086/metrics", "namespace": "web-server", "metrics": ["*"]}]'
   ad.datadoghq.com/web-server.logs: '[{"source": "python", "service": "web-server"}]'
 
+ingress:
+  enabled: true
+  className: nginx
+  path: /api(/|$)(.*)
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+
 env:
   - name: PORT
     value: "8086"

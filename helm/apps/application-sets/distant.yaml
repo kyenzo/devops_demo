@@ -46,3 +46,64 @@ spec:
             duration: 10s
             factor: 2
             maxDuration: 2m
+
+---
+
+# ApplicationSet for external Helm chart apps on the distant cluster
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: distant-helm-apps
+  namespace: argocd
+  labels:
+    environment: distant
+    managedBy: argocd
+    project: eks-demo
+spec:
+  generators:
+    - list:
+        elements:
+          - name: ingress-nginx-distant
+            namespace: ingress-nginx
+            chartRepo: https://kubernetes.github.io/ingress-nginx
+            chart: ingress-nginx
+            chartVersion: "4.11.3"
+            valuesFile: helm/ingress-nginx/values.yaml
+
+  template:
+    metadata:
+      name: "{{name}}"
+      namespace: argocd
+      labels:
+        environment: distant
+        managedBy: argocd
+        project: eks-demo
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: distant
+      sources:
+        - repoURL: "{{chartRepo}}"
+          chart: "{{chart}}"
+          targetRevision: "{{chartVersion}}"
+          helm:
+            valueFiles:
+              - "$values/{{valuesFile}}"
+        - repoURL: https://github.com/kyenzo/devops_demo.git
+          targetRevision: master
+          ref: values
+      destination:
+        name: distant
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m

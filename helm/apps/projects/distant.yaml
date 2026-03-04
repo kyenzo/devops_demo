@@ -14,6 +14,7 @@ spec:
 
   sourceRepos:
     - https://github.com/kyenzo/devops_demo.git
+    - https://kubernetes.github.io/ingress-nginx
 
   destinations:
     - name: distant
