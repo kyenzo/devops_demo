@@ -3,6 +3,9 @@ data "aws_caller_identity" "current" {}
 locals {
   prefix = "jack-devops-"
 
+  # CDN - Step: set to true after ingress-nginx NLBs are deployed on both clusters
+  create_cdn = false
+
   # VPC configuration
   vpc_cidr             = "10.0.0.0/16"
   availability_zones   = ["ca-west-1a", "ca-west-1b", "ca-west-1c"]
@@ -282,4 +285,40 @@ module "argocd" {
     module.eks,
     aws_iam_role.argocd_irsa,
   ]
+}
+
+# CDN - reads NLB hostnames from AWS by the tags Kubernetes automatically applies
+# Requires ingress-nginx to be deployed on both clusters first (set create_cdn = true above)
+data "aws_lb" "prod_ingress" {
+  count = local.create_cdn ? 1 : 0
+
+  tags = {
+    "kubernetes.io/service-name"                              = "ingress-nginx/ingress-nginx-controller"
+    "kubernetes.io/cluster/${local.prefix}eks-cluster"        = "owned"
+  }
+}
+
+data "aws_lb" "distant_ingress" {
+  count    = local.create_cdn ? 1 : 0
+  provider = aws.distant
+
+  tags = {
+    "kubernetes.io/service-name"                                     = "ingress-nginx/ingress-nginx-controller"
+    "kubernetes.io/cluster/jack-devops-distant-eks-cluster"          = "owned"
+  }
+}
+
+module "cdn" {
+  count  = local.create_cdn ? 1 : 0
+  source = "../../modules/cloudfront"
+
+  prod_origin_domain    = data.aws_lb.prod_ingress[0].dns_name
+  distant_origin_domain = data.aws_lb.distant_ingress[0].dns_name
+
+  tags = {
+    Environment = "prod"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
+  
 }
