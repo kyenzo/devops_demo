@@ -120,3 +120,28 @@ module "eks" {
     Project     = "eks-demo"
   }
 }
+
+# Ingress-nginx — creates the internet-facing NLB for the distant cluster
+resource "helm_release" "ingress_nginx" {
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  version          = "4.11.3"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  wait             = true
+
+  values = [file("${path.root}/../../../helm/ingress-nginx/values.yaml")]
+
+  depends_on = [module.eks]
+}
+
+# Read NLB hostname from the ingress-nginx controller service status
+data "kubernetes_service" "ingress_nginx" {
+  metadata {
+    name      = "ingress-nginx-controller"
+    namespace = "ingress-nginx"
+  }
+
+  depends_on = [helm_release.ingress_nginx]
+}

@@ -25,3 +25,8 @@ output "cluster_certificate_authority_data" {
   value       = module.eks.cluster_certificate_authority_data
   sensitive   = true
 }
+
+output "ingress_nlb_hostname" {
+  description = "Distant NLB hostname - read by prod env to configure CloudFront failover origin"
+  value       = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
+}

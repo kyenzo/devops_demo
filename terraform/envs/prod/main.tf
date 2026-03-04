@@ -299,22 +299,7 @@ resource "helm_release" "ingress_nginx" {
   depends_on = [module.eks]
 }
 
-# Ingress-nginx on distant cluster — creates the internet-facing NLB in ap-southeast-1
-resource "helm_release" "ingress_nginx_distant" {
-  provider = helm.distant
-
-  name             = "ingress-nginx"
-  repository       = "https://kubernetes.github.io/ingress-nginx"
-  chart            = "ingress-nginx"
-  version          = "4.11.3"
-  namespace        = "ingress-nginx"
-  create_namespace = true
-  wait             = true
-
-  values = [file("${path.root}/../../../helm/ingress-nginx/values.yaml")]
-}
-
-# Read NLB hostname from the ingress-nginx controller service status on prod cluster
+# Read NLB hostname from the prod ingress-nginx controller service status
 data "kubernetes_service" "ingress_nginx" {
   metadata {
     name      = "ingress-nginx-controller"
@@ -324,23 +309,11 @@ data "kubernetes_service" "ingress_nginx" {
   depends_on = [helm_release.ingress_nginx]
 }
 
-# Read NLB hostname from the ingress-nginx controller service status on distant cluster
-data "kubernetes_service" "ingress_nginx_distant" {
-  provider = kubernetes.distant
-
-  metadata {
-    name      = "ingress-nginx-controller"
-    namespace = "ingress-nginx"
-  }
-
-  depends_on = [helm_release.ingress_nginx_distant]
-}
-
 module "cdn" {
   source = "../../modules/cloudfront"
 
   prod_origin_domain    = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
-  distant_origin_domain = data.kubernetes_service.ingress_nginx_distant.status[0].load_balancer[0].ingress[0].hostname
+  distant_origin_domain = data.terraform_remote_state.distant.outputs.ingress_nlb_hostname
 
   tags = {
     Environment = "prod"
