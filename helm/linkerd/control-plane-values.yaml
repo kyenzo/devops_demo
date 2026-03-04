@@ -21,7 +21,17 @@ identity:
 
   # Trust anchor public certificate — paste output of the kubectl command above.
   trustAnchorsPEM: |
-    # REPLACE THIS after first sync
+    -----BEGIN CERTIFICATE-----
+    MIIBiTCCATCgAwIBAgIQbUlQeCfhOuSHfJLmbOek+jAKBggqhkjOPQQDAjAlMSMw
+    IQYDVQQDExpyb290LmxpbmtlcmQuY2x1c3Rlci5sb2NhbDAeFw0yNjAzMDQyMzA4
+    MjRaFw0zNjAzMDEyMzA4MjRaMCUxIzAhBgNVBAMTGnJvb3QubGlua2VyZC5jbHVz
+    dGVyLmxvY2FsMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzeeQR5h2sjKp2msH
+    8MbX4wMEShIfcP1POFPSl/Ajh3A4yxBB5uXVX9LfiYqeaXSPpGJzugFN2TfvXJzg
+    Qw1LB6NCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0O
+    BBYEFCQBa+YP960fgS4i+h+IdB/GeFTxMAoGCCqGSM49BAMCA0cAMEQCIBm7r2kd
+    aCQYPqLzDlW6IlOzYByuv6IrRA7OuBu5sEvDAiAmGqgcrDWYDknAY1gt0OfOFWLn
+    fcH9FfimplOYZQ74VA==
+    -----END CERTIFICATE-----
 
 proxy:
   resources:
