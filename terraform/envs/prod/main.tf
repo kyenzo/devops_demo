@@ -3,9 +3,6 @@ data "aws_caller_identity" "current" {}
 locals {
   prefix = "jack-devops-"
 
-  # CDN - Step: set to true after ingress-nginx NLBs are deployed on both clusters
-  create_cdn = false
-
   # VPC configuration
   vpc_cidr             = "10.0.0.0/16"
   availability_zones   = ["ca-west-1a", "ca-west-1b", "ca-west-1c"]
@@ -287,38 +284,67 @@ module "argocd" {
   ]
 }
 
-# CDN - reads NLB hostnames from AWS by the tags Kubernetes automatically applies
-# Requires ingress-nginx to be deployed on both clusters first (set create_cdn = true above)
-data "aws_lb" "prod_ingress" {
-  count = local.create_cdn ? 1 : 0
+# Ingress-nginx on prod cluster — creates the internet-facing NLB
+resource "helm_release" "ingress_nginx" {
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  version          = "4.11.3"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  wait             = true
 
-  tags = {
-    "kubernetes.io/service-name"                              = "ingress-nginx/ingress-nginx-controller"
-    "kubernetes.io/cluster/${local.prefix}eks-cluster"        = "owned"
-  }
+  values = [file("${path.root}/../../../helm/ingress-nginx/values.yaml")]
+
+  depends_on = [module.eks]
 }
 
-data "aws_lb" "distant_ingress" {
-  count    = local.create_cdn ? 1 : 0
-  provider = aws.distant
+# Ingress-nginx on distant cluster — creates the internet-facing NLB in ap-southeast-1
+resource "helm_release" "ingress_nginx_distant" {
+  provider = helm.distant
 
-  tags = {
-    "kubernetes.io/service-name"                                     = "ingress-nginx/ingress-nginx-controller"
-    "kubernetes.io/cluster/jack-devops-distant-eks-cluster"          = "owned"
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  version          = "4.11.3"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  wait             = true
+
+  values = [file("${path.root}/../../../helm/ingress-nginx/values.yaml")]
+}
+
+# Read NLB hostname from the ingress-nginx controller service status on prod cluster
+data "kubernetes_service" "ingress_nginx" {
+  metadata {
+    name      = "ingress-nginx-controller"
+    namespace = "ingress-nginx"
   }
+
+  depends_on = [helm_release.ingress_nginx]
+}
+
+# Read NLB hostname from the ingress-nginx controller service status on distant cluster
+data "kubernetes_service" "ingress_nginx_distant" {
+  provider = kubernetes.distant
+
+  metadata {
+    name      = "ingress-nginx-controller"
+    namespace = "ingress-nginx"
+  }
+
+  depends_on = [helm_release.ingress_nginx_distant]
 }
 
 module "cdn" {
-  count  = local.create_cdn ? 1 : 0
   source = "../../modules/cloudfront"
 
-  prod_origin_domain    = data.aws_lb.prod_ingress[0].dns_name
-  distant_origin_domain = data.aws_lb.distant_ingress[0].dns_name
+  prod_origin_domain    = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
+  distant_origin_domain = data.kubernetes_service.ingress_nginx_distant.status[0].load_balancer[0].ingress[0].hostname
 
   tags = {
     Environment = "prod"
     ManagedBy   = "terraform"
     Project     = "eks-demo"
   }
-  
 }

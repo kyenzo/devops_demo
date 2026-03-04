@@ -78,14 +78,6 @@ spec:
   generators:
     - list:
         elements:
-          - name: ingress-nginx
-            namespace: ingress-nginx
-            chartRepo: https://kubernetes.github.io/ingress-nginx
-            chart: ingress-nginx
-            chartVersion: "4.11.3"
-            valuesFile: helm/ingress-nginx/values.yaml
-            syncWave: "-1"
-
           - name: kyverno
             namespace: kyverno
             chartRepo: https://kyverno.github.io/kyverno/
