@@ -42,12 +42,18 @@ grafana:
   # No persistent storage
   persistence:
     enabled: false
-  # Service type for easy access
   service:
-    type: LoadBalancer
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    type: ClusterIP
+  # Sub-path config so Grafana's own links work correctly at /grafana
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana"
+      serve_from_sub_path: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    path: /grafana
+    pathType: Prefix
 
 # Node Exporter - node-level metrics (CPU, memory, disk)
 nodeExporter:
