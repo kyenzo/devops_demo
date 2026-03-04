@@ -51,7 +51,7 @@ resource "aws_cloudfront_distribution" "this" {
     target_origin_id       = "failover-group"
     viewer_protocol_policy = "allow-all"
 
-    allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
     cached_methods  = ["GET", "HEAD"]
 
     forwarded_values {
