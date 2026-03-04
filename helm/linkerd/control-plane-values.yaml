@@ -1,16 +1,11 @@
-# Linkerd control plane — cert-manager + trust-manager integration
+# Linkerd control plane — cert-manager integration
 #
-# Bootstrap step (one-time, after wave -2 completes):
-#   trust-manager creates a ConfigMap 'linkerd-identity-trust-roots' in the linkerd
-#   namespace containing the trust anchor's PUBLIC certificate (not a private key).
-#   Extract it and paste below:
+# The trust anchor public cert is stored in two places (both safe to commit to git):
+#   1. trustAnchorsPEM below — read by Linkerd at startup
+#   2. helm/cert-manager-config/configmap-trust-roots.yaml — ConfigMap mounted by Linkerd proxies
 #
-#   kubectl get configmap linkerd-identity-trust-roots -n linkerd \
-#     -o jsonpath='{.data.ca-bundle\.crt}'
-#
-# This is a PUBLIC CA certificate — equivalent to a browser's built-in CA bundle.
-# The private key never leaves the cert-manager namespace Kubernetes secret.
-# After the initial paste, trust-manager keeps the ConfigMap updated automatically.
+# The private key is preserved in AWS Secrets Manager (linkerd/trust-anchor)
+# and restored by ESO on every cluster rebuild, so the cert never changes.
 
 identity:
   # Linkerd reads the identity issuer cert/key from the 'linkerd-identity-issuer'
