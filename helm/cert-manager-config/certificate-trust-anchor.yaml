@@ -1,0 +1,21 @@
+# Linkerd trust anchor — the root CA for the entire mesh
+# Long-lived (10y) and stored in the linkerd namespace.
+# When Linkerd is installed, pass this cert's value as --identity-trust-anchors-file.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: linkerd-trust-anchor
+  namespace: linkerd
+spec:
+  isCA: true
+  commonName: root.linkerd.cluster.local
+  secretName: linkerd-trust-anchor
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  duration: 87600h   # 10 years — trust anchors rotate rarely
+  renewBefore: 720h  # renew 30 days before expiry
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

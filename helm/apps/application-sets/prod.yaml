@@ -12,6 +12,11 @@ spec:
   generators:
     - list:
         elements:
+          - name: cert-manager-config
+            namespace: cert-manager
+            path: helm/cert-manager-config
+            syncWave: "-2"
+
           - name: kyverno-policies
             namespace: kyverno
             path: helm/kyverno/policies
@@ -78,6 +83,14 @@ spec:
   generators:
     - list:
         elements:
+          - name: cert-manager
+            namespace: cert-manager
+            chartRepo: https://charts.jetstack.io
+            chart: cert-manager
+            chartVersion: "1.16.2"
+            valuesFile: helm/cert-manager/values.yaml
+            syncWave: "-3"
+
           - name: kyverno
             namespace: kyverno
             chartRepo: https://kyverno.github.io/kyverno/

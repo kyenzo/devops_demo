@@ -1,0 +1,7 @@
+# Bootstrap issuer — used only to sign the Linkerd trust anchor (root CA)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

@@ -1,0 +1,21 @@
+# Linkerd identity issuer — intermediate CA used by Linkerd's identity component
+# to issue per-pod mTLS certificates. Rotated annually by cert-manager automatically.
+# When Linkerd is installed, it reads this secret from the linkerd namespace.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: linkerd-identity-issuer
+  namespace: linkerd
+spec:
+  isCA: true
+  commonName: identity.linkerd.cluster.local
+  secretName: linkerd-identity-issuer
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  duration: 8760h   # 1 year
+  renewBefore: 720h # renew 30 days before expiry
+  issuerRef:
+    name: linkerd-trust-anchor
+    kind: Issuer
+    group: cert-manager.io
