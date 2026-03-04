@@ -12,6 +12,11 @@ spec:
   generators:
     - list:
         elements:
+          - name: eso-config
+            namespace: cert-manager
+            path: helm/eso-config
+            syncWave: "-3"
+
           - name: cert-manager-config
             namespace: cert-manager
             path: helm/cert-manager-config
@@ -83,6 +88,14 @@ spec:
   generators:
     - list:
         elements:
+          - name: external-secrets
+            namespace: external-secrets
+            chartRepo: https://charts.external-secrets.io
+            chart: external-secrets
+            chartVersion: "0.12.1"
+            valuesFile: helm/eso/values.yaml
+            syncWave: "-4"
+
           - name: cert-manager
             namespace: cert-manager
             chartRepo: https://charts.jetstack.io
@@ -90,6 +103,22 @@ spec:
             chartVersion: "1.16.2"
             valuesFile: helm/cert-manager/values.yaml
             syncWave: "-3"
+
+          - name: linkerd-crds
+            namespace: linkerd
+            chartRepo: https://helm.linkerd.io/edge
+            chart: linkerd-crds
+            chartVersion: "2026.2.1"
+            valuesFile: helm/linkerd/crds-values.yaml
+            syncWave: "-2"
+
+          - name: linkerd-control-plane
+            namespace: linkerd
+            chartRepo: https://helm.linkerd.io/edge
+            chart: linkerd-control-plane
+            chartVersion: "2026.2.1"
+            valuesFile: helm/linkerd/control-plane-values.yaml
+            syncWave: "0"
 
           - name: kyverno
             namespace: kyverno

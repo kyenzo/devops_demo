@@ -284,6 +284,52 @@ module "argocd" {
   ]
 }
 
+# IRSA: IAM role for External Secrets Operator
+data "aws_iam_policy_document" "eso_irsa_trust" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:external-secrets:external-secrets"]
+    }
+  }
+}
+
+resource "aws_iam_role" "eso_irsa" {
+  name               = "${local.prefix}eso-irsa-role"
+  assume_role_policy = data.aws_iam_policy_document.eso_irsa_trust.json
+
+  tags = {
+    Environment = "prod"
+    ManagedBy   = "terraform"
+    Project     = "eks-demo"
+  }
+}
+
+resource "aws_iam_role_policy" "eso_secrets_manager" {
+  name = "eso-secrets-manager-access"
+  role = aws_iam_role.eso_irsa.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      # Scoped to only the linkerd secrets path
+      Resource = "arn:aws:secretsmanager:ca-west-1:${data.aws_caller_identity.current.account_id}:secret:linkerd/*"
+    }]
+  })
+}
+
 # Ingress-nginx on prod cluster — creates the internet-facing NLB
 resource "helm_release" "ingress_nginx" {
   name             = "ingress-nginx"

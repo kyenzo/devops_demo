@@ -1,10 +1,10 @@
-# Namespaced Issuer backed by the trust anchor secret.
-# cert-manager uses this to sign the identity issuer certificate.
+# ClusterIssuer backed by the trust anchor secret.
+# ClusterIssuers read their CA secret from the cert-manager namespace by default,
+# which is where the linkerd-trust-anchor secret lives.
 apiVersion: cert-manager.io/v1
-kind: Issuer
+kind: ClusterIssuer
 metadata:
   name: linkerd-trust-anchor
-  namespace: linkerd
 spec:
   ca:
     secretName: linkerd-trust-anchor

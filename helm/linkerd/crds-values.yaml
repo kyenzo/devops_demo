@@ -1,0 +1,2 @@
+# No configuration needed for the CRDs chart.
+# This file exists so ArgoCD can reference it via the multi-source ApplicationSet template.

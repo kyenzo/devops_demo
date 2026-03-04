@@ -17,5 +17,5 @@ spec:
   renewBefore: 720h # renew 30 days before expiry
   issuerRef:
     name: linkerd-trust-anchor
-    kind: Issuer
+    kind: ClusterIssuer
     group: cert-manager.io

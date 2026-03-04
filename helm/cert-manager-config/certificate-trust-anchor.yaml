@@ -1,11 +1,11 @@
-# Linkerd trust anchor — the root CA for the entire mesh
-# Long-lived (10y) and stored in the linkerd namespace.
-# When Linkerd is installed, pass this cert's value as --identity-trust-anchors-file.
+# Linkerd trust anchor — the root CA for the entire mesh.
+# Stored in the cert-manager namespace so trust-manager can read it
+# and distribute it as a ConfigMap to the linkerd namespace.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: linkerd-trust-anchor
-  namespace: linkerd
+  namespace: cert-manager
 spec:
   isCA: true
   commonName: root.linkerd.cluster.local

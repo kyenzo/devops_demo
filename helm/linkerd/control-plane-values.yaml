@@ -1,0 +1,37 @@
+# Linkerd control plane — cert-manager + trust-manager integration
+#
+# Bootstrap step (one-time, after wave -2 completes):
+#   trust-manager creates a ConfigMap 'linkerd-identity-trust-roots' in the linkerd
+#   namespace containing the trust anchor's PUBLIC certificate (not a private key).
+#   Extract it and paste below:
+#
+#   kubectl get configmap linkerd-identity-trust-roots -n linkerd \
+#     -o jsonpath='{.data.ca-bundle\.crt}'
+#
+# This is a PUBLIC CA certificate — equivalent to a browser's built-in CA bundle.
+# The private key never leaves the cert-manager namespace Kubernetes secret.
+# After the initial paste, trust-manager keeps the ConfigMap updated automatically.
+
+identity:
+  # Linkerd reads the identity issuer cert/key from the 'linkerd-identity-issuer'
+  # secret in the linkerd namespace — managed automatically by cert-manager.
+  externalCA: true
+  issuer:
+    scheme: kubernetes.io/tls
+
+  # Trust anchor public certificate — paste output of the kubectl command above.
+  trustAnchorsPEM: |
+    # REPLACE THIS after first sync
+
+proxy:
+  resources:
+    cpu:
+      request: 10m
+      limit: 1000m
+    memory:
+      request: 20Mi
+      limit: 250Mi
+
+proxyInit:
+  # Required on EKS to allow the init container to configure iptables
+  runAsRoot: true
