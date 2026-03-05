@@ -1,0 +1,18 @@
+# Bundle — tells trust-manager to watch the linkerd-trust-anchor secret
+# (in the cert-manager namespace) and keep the linkerd-identity-trust-roots
+# ConfigMap in the linkerd namespace up to date automatically.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: linkerd-identity-trust-roots
+spec:
+  sources:
+    - secret:
+        name: linkerd-trust-anchor
+        key: tls.crt
+  target:
+    configMap:
+      key: ca-bundle.crt
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: linkerd

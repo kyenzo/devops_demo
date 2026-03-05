@@ -1,0 +1,8 @@
+crds:
+  enabled: true
+
+app:
+  trust:
+    # trust-manager reads secret sources from this namespace.
+    # Must match where cert-manager (and our linkerd-trust-anchor secret) lives.
+    namespace: cert-manager

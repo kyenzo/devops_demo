@@ -104,6 +104,14 @@ spec:
             valuesFile: helm/cert-manager/values.yaml
             syncWave: "-3"
 
+          - name: trust-manager
+            namespace: cert-manager
+            chartRepo: https://charts.jetstack.io
+            chart: trust-manager
+            chartVersion: "v0.21.1"
+            valuesFile: helm/trust-manager/values.yaml
+            syncWave: "-3"
+
           - name: linkerd-crds
             namespace: linkerd
             chartRepo: https://helm.linkerd.io/edge

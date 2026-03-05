@@ -1,11 +1,12 @@
-# Linkerd control plane — cert-manager integration
+# Linkerd control plane — cert-manager + trust-manager integration
 #
-# The trust anchor public cert is stored in two places (both safe to commit to git):
-#   1. trustAnchorsPEM below — read by Linkerd at startup
-#   2. helm/cert-manager-config/configmap-trust-roots.yaml — ConfigMap mounted by Linkerd proxies
+# trustAnchorsPEM below is read by the Linkerd control plane at startup.
+# The linkerd-identity-trust-roots ConfigMap (mounted by every proxy sidecar)
+# is maintained automatically by trust-manager via the Bundle resource in
+# helm/cert-manager-config/trust-bundle.yaml — no manual ConfigMap needed.
 #
 # The private key is preserved in AWS Secrets Manager (linkerd/trust-anchor)
-# and restored by ESO on every cluster rebuild, so the cert never changes.
+# and restored by ESO on every cluster rebuild, so this cert never changes.
 
 identity:
   # Linkerd reads the identity issuer cert/key from the 'linkerd-identity-issuer'
