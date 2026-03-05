@@ -168,6 +168,52 @@ Three policies enforced cluster-wide:
 - All pods must have resource limits
 - Required labels on all resources
 
+#### Viewing Policy Reports
+
+Kyverno records the result of every policy check as a `PolicyReport` (per-namespace) or `ClusterPolicyReport` (cluster-wide). These are the quickest way to see what's passing and failing:
+
+```bash
+# Summary of all policy results across all namespaces
+kubectl get policyreport -A
+
+# Detailed results for a specific namespace
+kubectl describe policyreport -n web-server
+
+# Cluster-wide results (for cluster-scoped resources)
+kubectl get clusterpolicyreport
+kubectl describe clusterpolicyreport
+```
+
+Each report shows `pass`, `fail`, `warn`, and `skip` counts per policy per resource.
+
+#### Kyverno Metrics in Grafana
+
+Kyverno exposes Prometheus metrics but they are not scraped by default. To enable it, add a ServiceMonitor to `helm/kyverno/values.yaml`:
+
+```yaml
+admissionController:
+  serviceMonitor:
+    enabled: true
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+```
+
+Once Prometheus is scraping Kyverno, import the official Kyverno Grafana dashboard (ID **15979**) from grafana.com. It shows policy violation trends, admission request rates, and per-policy pass/fail breakdowns.
+
+To access Grafana:
+
+```bash
+# Get the admin password
+kubectl get secret -n monitoring monitoring-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 -d
+
+# Port forward
+kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+# Open http://localhost:3000
+```
+
 ---
 
 ## Getting Started
