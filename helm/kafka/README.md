@@ -1,89 +1,73 @@
-# Kafka on EKS (Strimzi)
+# Kafka
 
-Apache Kafka deployment using Strimzi Operator - a CNCF project for running Kafka on Kubernetes.
+Apache Kafka running on Kubernetes via the Strimzi operator. Deployed in KRaft mode — no Zookeeper required.
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Kafka Namespace                       │
-│                                                          │
-│  ┌──────────────────┐                                   │
-│  │ Strimzi Operator │ (manages Kafka CRDs)              │
-│  └────────┬─────────┘                                   │
-│           │ creates/manages                             │
-│           ▼                                             │
-│  ┌──────────────────┐    ┌──────────────────┐          │
-│  │  Kafka Broker    │◄───│    Kafka UI      │          │
-│  │  (KRaft mode)    │    │  (Web Interface) │          │
-│  │  Port: 9092      │    │   Port: 80       │          │
-│  └──────────────────┘    └──────────────────┘          │
-│           │                       │                     │
-│  kafka-kafka-bootstrap:9092   LoadBalancer:80          │
-└─────────────────────────────────────────────────────────┘
-```
+---
 
 ## Components
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| Strimzi Operator | 0.49.1 | Manages Kafka clusters via CRDs |
-| Kafka | 4.0.0 | Message broker (1 replica, KRaft mode) |
-| Kafka UI (Provectus) | 0.7.6 | Web interface for management |
+| Strimzi Operator | 0.49.1 | Manages Kafka clusters via Kubernetes CRDs |
+| Kafka | 4.0.0 | Message broker (KRaft mode, 1 node) |
+| Kafka UI | 0.7.6 | Web interface for managing topics and messages |
 
-## ArgoCD Applications
+---
 
-| Application | Description |
-|-------------|-------------|
-| kafka-operator | Installs Strimzi Operator |
-| kafka-cluster | Creates Kafka cluster (KRaft mode, no Zookeeper) |
-| kafka-ui | Web interface for Kafka |
+## Architecture
 
-## Quick Access
+```
+kafka namespace
+├── strimzi-cluster-operator    — watches Kafka CRDs and manages the cluster
+├── kafka-controller-0          — Kafka broker + KRaft controller combined
+├── kafka-entity-operator       — manages KafkaTopic and KafkaUser CRDs
+└── kafka-ui                    — Provectus web UI
+```
 
-### Kafka UI (Web Interface)
+---
 
-Get the LoadBalancer URL:
+## Accessing Kafka UI
+
 ```bash
-kubectl get svc -n kafka kafka-ui -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'; echo
+kubectl get svc -n kafka kafka-ui \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'; echo
 ```
 
 Or port-forward locally:
+
 ```bash
 kubectl port-forward -n kafka svc/kafka-ui 8080:80
-# Access at http://localhost:8080
+# Open http://localhost:8080
 ```
 
-### Kafka Bootstrap Server
+---
 
-Internal address (for applications in the cluster):
+## Connecting to Kafka
+
+From within the cluster:
+
 ```
 kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
-# or simply from within kafka namespace:
+```
+
+From within the `kafka` namespace:
+
+```
 kafka-kafka-bootstrap:9092
 ```
 
+---
+
 ## Useful Commands
 
-### Check Pod Status
+### Check cluster status
 
 ```bash
 kubectl get pods -n kafka
+kubectl get kafka -n kafka
 ```
 
-Expected pods:
-- `strimzi-cluster-operator-*` - Strimzi operator
-- `kafka-controller-0` - Kafka broker (KRaft mode)
-- `kafka-entity-operator-*` - Topic/User operator
-- `kafka-ui-*` - Web UI
-
-### View Kafka Logs
-
-```bash
-kubectl logs -n kafka kafka-controller-0 -f
-```
-
-### Create a Topic
+### Create a topic via CLI
 
 ```bash
 kubectl exec -it kafka-controller-0 -n kafka -- \
@@ -94,7 +78,8 @@ kubectl exec -it kafka-controller-0 -n kafka -- \
     --replication-factor 1
 ```
 
-Or using Strimzi KafkaTopic CRD:
+### Create a topic via CRD (recommended)
+
 ```yaml
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -108,220 +93,98 @@ spec:
   replicas: 1
 ```
 
-### List Topics
+### Produce and consume messages
 
 ```bash
-kubectl exec -it kafka-controller-0 -n kafka -- \
-  bin/kafka-topics.sh --list --bootstrap-server localhost:9092
-```
-
-### Describe a Topic
-
-```bash
-kubectl exec -it kafka-controller-0 -n kafka -- \
-  bin/kafka-topics.sh --describe \
-    --bootstrap-server localhost:9092 \
-    --topic my-topic
-```
-
-## Producer/Consumer Testing
-
-### Start a Console Producer
-
-```bash
+# Producer
 kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-console-producer.sh \
     --broker-list localhost:9092 \
-    --topic test-topic
-# Type messages and press Enter to send
-```
+    --topic my-topic
 
-### Start a Console Consumer
-
-```bash
+# Consumer
 kubectl exec -it kafka-controller-0 -n kafka -- \
   bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 \
-    --topic test-topic \
+    --topic my-topic \
     --from-beginning
 ```
 
-### Using a Temporary Kafka Client Pod
+### Using a temporary client pod
 
 ```bash
 kubectl run kafka-client --rm -it \
   --image=quay.io/strimzi/kafka:0.49.1-kafka-4.0.0 \
   --namespace=kafka -- bash
-
-# Inside the pod:
-bin/kafka-console-producer.sh --broker-list kafka-kafka-bootstrap:9092 --topic test
-bin/kafka-console-consumer.sh --bootstrap-server kafka-kafka-bootstrap:9092 --topic test --from-beginning
 ```
 
-## Consumer Groups
+---
 
-### List Consumer Groups
+## Connecting from Your Application
 
-```bash
-kubectl exec -it kafka-controller-0 -n kafka -- \
-  bin/kafka-consumer-groups.sh \
-    --bootstrap-server localhost:9092 \
-    --list
-```
-
-### Describe Consumer Group
-
-```bash
-kubectl exec -it kafka-controller-0 -n kafka -- \
-  bin/kafka-consumer-groups.sh \
-    --bootstrap-server localhost:9092 \
-    --group my-consumer-group \
-    --describe
-```
-
-## Strimzi Custom Resources
-
-### View Kafka Cluster Status
-
-```bash
-kubectl get kafka -n kafka
-kubectl describe kafka kafka -n kafka
-```
-
-### View Topics
-
-```bash
-kubectl get kafkatopic -n kafka
-```
-
-### View Users
-
-```bash
-kubectl get kafkauser -n kafka
-```
-
-## Troubleshooting
-
-### Pod Not Starting
-
-```bash
-# Check events
-kubectl describe pod -n kafka kafka-controller-0
-
-# Check operator logs
-kubectl logs -n kafka deployment/strimzi-cluster-operator
-```
-
-### Kafka UI Can't Connect
-
-1. Check Kafka cluster is ready:
-   ```bash
-   kubectl get kafka kafka -n kafka -o jsonpath='{.status.conditions}'
-   ```
-
-2. Verify bootstrap service exists:
-   ```bash
-   kubectl get svc -n kafka kafka-kafka-bootstrap
-   ```
-
-3. Test connection from Kafka UI pod:
-   ```bash
-   kubectl exec -it -n kafka deployment/kafka-ui -- \
-     nc -zv kafka-kafka-bootstrap 9092
-   ```
-
-## Configuration
-
-### Current Settings
-
-| Setting | Value |
-|---------|-------|
-| Kafka Mode | KRaft (no Zookeeper) |
-| Kafka Brokers | 1 (controller+broker combined) |
-| Storage | Ephemeral (no persistence) |
-| Replication Factor | 1 |
-| Auto-create Topics | Enabled |
-| Log Retention | 168 hours (7 days) |
-| Listeners | Plain (9092), TLS (9093) |
-| Node Size | t3.large (2 vCPU, 8Gi RAM) |
-
-### Scaling (Future)
-
-To scale to 3 Kafka brokers, edit `helm/kafka/cluster/kafka-cluster.yaml`:
-```yaml
-# In KafkaNodePool resource
-spec:
-  replicas: 3
-```
-
-## Connecting Applications
-
-### Python (kafka-python)
+### Python
 
 ```python
 from kafka import KafkaProducer, KafkaConsumer
 
-# Producer
-producer = KafkaProducer(bootstrap_servers='kafka-kafka-bootstrap.kafka.svc.cluster.local:9092')
-producer.send('my-topic', b'Hello Kafka!')
+producer = KafkaProducer(
+    bootstrap_servers='kafka-kafka-bootstrap.kafka.svc.cluster.local:9092'
+)
+producer.send('my-topic', b'hello')
 
-# Consumer
-consumer = KafkaConsumer('my-topic', bootstrap_servers='kafka-kafka-bootstrap.kafka.svc.cluster.local:9092')
+consumer = KafkaConsumer(
+    'my-topic',
+    bootstrap_servers='kafka-kafka-bootstrap.kafka.svc.cluster.local:9092'
+)
 for message in consumer:
     print(message.value)
 ```
 
-### Node.js (kafkajs)
+### Node.js
 
 ```javascript
 const { Kafka } = require('kafkajs');
-
 const kafka = new Kafka({
-  clientId: 'my-app',
   brokers: ['kafka-kafka-bootstrap.kafka.svc.cluster.local:9092']
-});
-
-// Producer
-const producer = kafka.producer();
-await producer.send({
-  topic: 'my-topic',
-  messages: [{ value: 'Hello Kafka!' }]
-});
-
-// Consumer
-const consumer = kafka.consumer({ groupId: 'my-group' });
-await consumer.subscribe({ topic: 'my-topic' });
-await consumer.run({
-  eachMessage: async ({ message }) => {
-    console.log(message.value.toString());
-  }
 });
 ```
 
-## Deployment Notes
+---
 
-### Resource Requirements
+## Current Configuration
 
-This deployment requires **t3.large nodes** (2 vCPU, 8Gi RAM) to run all components:
-- Kafka controller: 250m CPU, 512Mi RAM (limits: 500m CPU, 1Gi RAM)
-- Entity operator (2 containers): 200m CPU, 512Mi RAM total
-- Kafka UI: 100m CPU, 256Mi RAM
-- Strimzi operator: 200m CPU, 256Mi RAM
+| Setting | Value |
+|---------|-------|
+| Mode | KRaft (no Zookeeper) |
+| Brokers | 1 (controller + broker combined) |
+| Storage | Ephemeral (no EBS — data is lost on pod restart) |
+| Replication factor | 1 |
+| Log retention | 7 days |
+| Listeners | Plain (9092), TLS (9093) |
 
-**Note**: t3.small nodes (2 vCPU, 2Gi RAM) are insufficient due to pod scheduling constraints.
+---
 
-### Why Strimzi Instead of Bitnami?
+## Troubleshooting
 
-Bitnami removed their free container images from Docker Hub on August 28, 2025. Strimzi is:
-- A CNCF incubating project with active maintenance
-- Uses official Apache Kafka images (quay.io/strimzi)
-- Provides Kubernetes-native management via CRDs
-- Better suited for production Kafka deployments
-- Supports modern KRaft mode (no Zookeeper required)
+### Operator logs
 
-## Sources
+```bash
+kubectl logs -n kafka deployment/strimzi-cluster-operator
+```
 
-- [Strimzi Documentation](https://strimzi.io/documentation/)
-- [Strimzi GitHub](https://github.com/strimzi/strimzi-kafka-operator)
-- [Kafka UI Documentation](https://docs.kafka-ui.provectus.io/)
-- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+### Kafka broker logs
+
+```bash
+kubectl logs -n kafka kafka-controller-0 -f
+```
+
+### Kafka UI can't connect
+
+```bash
+# Check the bootstrap service exists
+kubectl get svc -n kafka kafka-kafka-bootstrap
+
+# Test connectivity from Kafka UI pod
+kubectl exec -it -n kafka deployment/kafka-ui -- \
+  nc -zv kafka-kafka-bootstrap 9092
+```

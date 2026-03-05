@@ -1,129 +1,87 @@
-# ArgoCD Applications
+# ArgoCD Apps Configuration
 
-This directory implements the App-of-Apps pattern for managing all applications in the cluster.
+This directory contains everything ArgoCD needs to know about what to deploy and where.
 
-## Current Applications
+---
 
-- **root-app.yaml**: The root Application that manages all other applications
-
-## App-of-Apps Pattern
+## Structure
 
 ```
-root-app
-└── (watches helm/argocd/apps/ directory)
-    └── Any new Application manifests added here will be auto-deployed
+helm/apps/
+├── root-app.yaml              — bootstrapped by Terraform; watches this directory
+├── application-sets/
+│   ├── prod.yaml              — defines all prod cluster applications
+│   └── distant.yaml           — defines all distant cluster applications
+└── projects/
+    ├── prod.yaml              — ArgoCD Project for prod (allowed repos, namespaces)
+    └── distant.yaml           — ArgoCD Project for distant
 ```
 
-## Deployment Sequence
+---
 
-1. Terraform creates EKS cluster
-2. Terraform deploys ArgoCD
-3. Terraform applies `root-app.yaml`
-4. Root app watches this directory for new applications
-5. Any new Application manifests are automatically deployed
+## How It Works
 
-## Adding New Applications
+Terraform deploys ArgoCD and applies `root-app.yaml`. The root app watches the `helm/apps/` directory. When ArgoCD finds the ApplicationSet files, it generates and deploys all the individual applications automatically.
 
-To add a new application:
+```
+Terraform applies root-app.yaml
+    └── root-app watches helm/apps/
+            └── finds application-sets/prod.yaml
+                    └── generates: external-secrets, cert-manager, linkerd, ...
+```
 
-1. Create a new Application manifest in this directory (e.g., `my-app.yaml`)
-2. Commit and push to Git
-3. The root-app will automatically detect and deploy it within 3 minutes
-4. Or manually sync via ArgoCD UI
+---
 
-### Example Application Manifest
+## ApplicationSets
 
+Each environment has two ApplicationSets:
+
+**prod-helm-apps** — for applications from external Helm chart repositories (cert-manager, Linkerd, Prometheus, etc.). Each app specifies a `chartRepo`, `chart`, `chartVersion`, and `valuesFile` pointing to our overrides in this repo.
+
+**prod-git-apps** — for plain Kubernetes manifests stored in this repo (cert-manager-config, eso-config, kyverno-policies, web-server, kafka-cluster). Each app specifies a `path` in this repo.
+
+---
+
+## ArgoCD Projects
+
+Projects control what each set of apps is allowed to do:
+
+- **prod project** — allows all namespaces and all cluster resources, restricted to specific Helm chart repos
+- **distant project** — same model, only allows the repos needed by the distant cluster apps
+
+---
+
+## Adding an Application to Prod
+
+Open `helm/apps/application-sets/prod.yaml` and add an entry to the appropriate generator list.
+
+For a Helm chart:
 ```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: my-app
-  namespace: argocd
-  labels:
-    environment: prod
-    managedBy: argocd
-    project: eks-demo
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: default
-
-  source:
-    repoURL: https://github.com/kyenzo/devops_demo.git
-    targetRevision: HEAD
-    path: path/to/my-app  # Path in this repo to your app manifests
-
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: my-app
-
-  syncPolicy:
-    automated:
-      prune: true      # Remove resources when removed from Git
-      selfHeal: true   # Auto-sync when cluster state drifts
-      allowEmpty: false
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 3m
+- name: my-app
+  namespace: my-app
+  chartRepo: https://charts.example.com
+  chart: my-chart
+  chartVersion: "1.2.3"
+  valuesFile: helm/my-app/values.yaml
+  syncWave: "0"
 ```
 
-## Sync Policies
-
-All applications use automated sync with:
-- **prune**: true - Remove resources deleted from Git
-- **selfHeal**: true - Auto-correct drift from desired state
-- **retry**: Exponential backoff on sync failures
-
-## Best Practices
-
-1. **Naming**: Use descriptive names (e.g., `nginx-ingress.yaml`, `prometheus.yaml`)
-2. **Labels**: Include environment, managedBy, project labels
-3. **Finalizers**: Always include `resources-finalizer.argocd.argoproj.io`
-4. **Namespaces**: Use `CreateNamespace=true` sync option
-5. **Projects**: Use appropriate ArgoCD Project for RBAC
-
-## Verification
-
-Check application status:
-
-```bash
-# List all applications
-kubectl get applications -n argocd
-
-# Describe specific application
-kubectl describe application my-app -n argocd
-
-# Watch sync status
-kubectl get applications -n argocd -w
+For manifests from this repo:
+```yaml
+- name: my-config
+  namespace: my-namespace
+  path: helm/my-config
+  syncWave: "0"
 ```
 
-## Troubleshooting
+If the chart repo is new, also add it to `helm/apps/projects/prod.yaml` under `sourceRepos`.
 
-### Application Not Syncing
+Push to master and ArgoCD will pick it up within a few minutes.
 
-```bash
-# Check root-app status
-kubectl get application root-app -n argocd
+---
 
-# Check application details
-kubectl describe application my-app -n argocd
+## Sync Waves
 
-# Manual sync
-kubectl patch application my-app -n argocd \
-  --type merge -p '{"operation":{"sync":{}}}'
-```
+The `syncWave` field controls deployment order. Lower numbers deploy first. ArgoCD waits for all apps in a wave to become healthy before starting the next wave.
 
-### Application Stuck in Progressing
-
-```bash
-# Check events
-kubectl get events -n argocd --sort-by='.lastTimestamp'
-
-# Check ArgoCD logs
-kubectl logs -n argocd deployment/argocd-application-controller
-```
+See [helm/README.md](../README.md) for the full wave ordering.

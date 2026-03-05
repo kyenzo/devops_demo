@@ -1,57 +1,56 @@
-# ArgoCD Bootstrap
+# ArgoCD
 
-This directory contains the Helm configuration for installing ArgoCD on the jack-devops EKS cluster.
+ArgoCD is the GitOps engine for this project. It watches this GitHub repository and keeps the cluster in sync with whatever is in `master`.
+
+---
 
 ## Installation
 
-### Prerequisites
-- EKS cluster running (jack-devops-eks-cluster)
-- kubectl configured with cluster access
-- Helm 3.x installed
+ArgoCD is installed automatically by Terraform when the cluster is created. You do not need to run Helm manually.
 
-### Deploy ArgoCD
+```bash
+cd terraform/envs/prod
+terraform apply
+# ArgoCD is installed as part of this step
+```
 
-1. Create the argocd namespace:
-   ```bash
-   kubectl create namespace argocd
-   ```
+The Terraform ArgoCD module uses the values files in this directory:
+- `values.yaml` — base configuration
+- `values-prod.yaml` — production overrides (resource limits, etc.)
 
-2. Install ArgoCD using Helm:
-   ```bash
-   helm install argocd . \
-     --namespace argocd \
-     --values values.yaml \
-     --values values-prod.yaml \
-     --create-namespace
-   ```
+---
 
-3. Wait for ArgoCD to be ready:
-   ```bash
-   kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-   ```
+## Accessing the UI
 
-4. Get the initial admin password:
-   ```bash
-   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-   ```
+```bash
+# Get the admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
 
-5. Access ArgoCD UI:
-   ```bash
-   kubectl port-forward svc/argocd-server -n argocd 8080:443
-   ```
+# Port forward
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Open https://localhost:8080 (username: admin)
+```
 
-   Or get the LoadBalancer URL:
-   ```bash
-   kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-   ```
+---
 
-## Configuration
+## How ArgoCD Is Configured
 
-- **values.yaml**: Default configuration for all environments
-- **values-prod.yaml**: Production-specific overrides
+- Monitors the `master` branch only
+- All applications use automated sync with `prune: true` and `selfHeal: true`
+- Applications are defined via ApplicationSets (see `helm/apps/application-sets/`)
+- ArgoCD manages both the prod and distant clusters from the prod cluster
 
-## Security Notes
+---
 
-- Change the default admin password immediately after installation
-- In production, enable HTTPS and proper certificate management
-- Consider using AWS Secrets Manager or External Secrets for sensitive data
+## Verifying Everything Is Healthy
+
+```bash
+kubectl get applications -n argocd
+```
+
+All apps should show `Synced` and `Healthy`. If something is degraded, check the app details:
+
+```bash
+kubectl describe application <app-name> -n argocd
+```

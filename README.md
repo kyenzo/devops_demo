@@ -1,518 +1,284 @@
-# DevOps Demo Project - AWS EKS Infrastructure
+# DevOps Demo — AWS EKS Multi-Cluster Infrastructure
 
-A production-ready AWS infrastructure demonstration project built with Terraform, showcasing modern DevOps practices and cloud-native architecture patterns.
+A production-style AWS infrastructure built with Terraform and managed entirely through GitOps (ArgoCD). Two Kubernetes clusters across two regions, connected via CloudFront CDN, with a full security and observability stack.
 
-## Project Overview
+---
 
-This project demonstrates a complete Infrastructure as Code (IaC) solution for deploying a highly available Kubernetes cluster on AWS. Built as a learning and interview preparation project, it follows production-level best practices while maintaining cost efficiency.
+## What This Project Does
 
-### Goals
+- Runs two EKS clusters: **prod** (ca-west-1, Canada) and **distant** (ap-southeast-1, Singapore)
+- Serves traffic through **CloudFront CDN** with automatic failover between clusters
+- Manages all applications declaratively via **ArgoCD** — push to Git, cluster updates itself
+- Secures all inter-service communication with **Linkerd** mTLS service mesh
+- Enforces policies cluster-wide with **Kyverno**
+- Collects metrics with **Prometheus + Grafana**
+- Runs **Kafka** event streaming via Strimzi operator
+- Keeps secrets safe in **AWS Secrets Manager** via External Secrets Operator
 
-- Build a complete AWS infrastructure solution for hosting highly available applications on EKS
-- Demonstrate proficiency in Terraform, AWS, Kubernetes, and DevOps practices
-- Create modular, reusable infrastructure components
-- Implement security best practices (RBAC, network isolation, IAM)
-- Maintain cost-conscious design suitable for personal use
-- Document the learning journey and architecture decisions
+---
 
 ## Architecture
 
-### Infrastructure Components
-
 ```
-┌────────────────────────────────────────────────────────────┐
-│                        AWS Account                         │
-│                                                            │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │              VPC (10.0.0.0/16)                     │    │
-│  │                                                    │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────-──────┐│    │
-│  │  │ Public Subnet│  │ Public Subnet│  │  Public    ││    │
-│  │  │ 10.0.1.0/24  │  │ 10.0.2.0/24  │  │ Subnet     ││    │
-│  │  │   (AZ-a)     │  │   (AZ-b)     │  │ 10.0.3.0/  ││    │
-│  │  └──────────────┘  └──────────────┘  └──────────-─┘│    │
-│  │         │                  │                 │     │    │
-│  │    ┌────┴──────────────────┴─────────────────┘     │    │
-│  │    │         Internet Gateway                      │    │
-│  │    └───────────────────────────────────────────────┘    │
-│  │                                                    │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │    │
-│  │  │Private Subnet│  │Private Subnet│  │  Private  │ │    │
-│  │  │ 10.0.11.0/24 │  │ 10.0.12.0/24 │  │  Subnet   │ │    │
-│  │  │   (AZ-a)     │  │   (AZ-b)     │  │ 10.0.13.0/│ │    │
-│  │  └──────────────┘  └──────────────┘  └───────────┘ │    │
-│  │         │                                          │    │
-│  │    ┌────┴────────┐                                 │    │
-│  │    │ NAT Gateway │                                 │    │
-│  │    └─────────────┘                                 │    │
-│  │                                                    │    │
-│  │  ┌────────────────────────────────────────────────┐│    │
-│  │  │         EKS Cluster (v1.34)                    ││    │
-│  │  │                                                ││    │
-│  │  │  ┌──────────────┐  ┌──────────────┐            ││    │
-│  │  │  │ Worker Node  │  │ Worker Node  │            ││    │
-│  │  │  │  t3.small    │  │  t3.small    │            ││    │
-│  │  │  └──────────────┘  └──────────────┘            ││    │
-│  │  └────────────────────────────────────────────────┘│    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                            │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │              IAM Roles & Policies                  │    │
-│  │  - EKS Cluster Role                                │    │
-│  │  - EKS Node Group Role                             │    │
-│  │  - EKS Admin Access Role (RBAC)                    │    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-
-  Remote State Storage:
-  ┌─────────────────┐
-  │  S3 Bucket      │  terraform state files
-  └─────────────────┘
-  ┌─────────────────┐
-  │ DynamoDB Table  │  state locking
-  └─────────────────┘
+                         ┌─────────────────────┐
+                         │     CloudFront CDN   │
+                         │  (active/passive      │
+                         │    failover)          │
+                         └────────┬────────┬────┘
+                                  │        │
+                    ┌─────────────┘        └─────────────┐
+                    ▼                                     ▼
+         ┌──────────────────┐                 ┌──────────────────┐
+         │   prod cluster   │                 │  distant cluster │
+         │   ca-west-1      │◄── VPC Peering ►│  ap-southeast-1  │
+         │   (primary)      │                 │   (failover)     │
+         └──────────────────┘                 └──────────────────┘
+                    │
+                    │  ArgoCD (runs on prod, manages both clusters)
+                    │
+         ┌──────────▼──────────────────────────────────┐
+         │            Applications (prod cluster)       │
+         │                                              │
+         │  ingress-nginx  →  web-server                │
+         │  Linkerd (mTLS for all services)             │
+         │  cert-manager + ESO (certificate mgmt)       │
+         │  Kyverno (policy enforcement)                │
+         │  Kafka + Strimzi + Kafka UI                  │
+         │  Prometheus + Grafana (monitoring)           │
+         └──────────────────────────────────────────────┘
 ```
 
-## Project Structure
+### Two-Cluster Setup
+
+| Cluster | Region | Purpose |
+|---------|--------|---------|
+| prod | ca-west-1 (Calgary) | Primary — hosts all apps, runs ArgoCD |
+| distant | ap-southeast-1 (Singapore) | Failover — runs web-server only |
+
+CloudFront routes traffic to prod normally. If prod's origin health check fails, it automatically routes to distant. ArgoCD on prod manages both clusters via IRSA authentication.
+
+---
+
+## Infrastructure Components
+
+### Terraform (`terraform/`)
+
+Everything is provisioned with Terraform. Two environments share reusable modules.
 
 ```
 terraform/
-├── modules/                      # Reusable infrastructure modules
-│   ├── vpc/                     # VPC with subnets, NAT, IGW
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   ├── eks/                     # EKS cluster and node groups
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   ├── iam-roles/               # IAM roles for EKS
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   ├── security-groups/         # Security groups for EKS
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   ├── s3-bucket/               # S3 bucket module
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── argocd/                  # ArgoCD GitOps automation
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
-└── envs/                        # Environment configurations
-    └── prod/                    # Production environment
-        ├── backend.tf           # S3 backend configuration
-        ├── providers.tf         # AWS, Helm, and kubectl providers
-        ├── main.tf              # Main configuration
-        └── variables.tf         # Environment variables
+├── envs/
+│   ├── prod/       — prod cluster, CloudFront, ArgoCD, ESO IRSA role
+│   └── distant/    — distant cluster, VPC peering accepter
+└── modules/
+    ├── vpc/            — VPC, subnets, NAT gateway, VPC peering
+    ├── eks/            — EKS cluster and managed node groups
+    ├── iam-roles/      — EKS cluster/node IAM roles
+    ├── security-groups/ — Security groups for EKS
+    ├── argocd/         — ArgoCD Helm deployment + root app
+    ├── cloudfront/     — CloudFront distribution with two origins
+    └── s3-bucket/      — General-purpose S3 bucket
+```
 
+**Key Terraform resources in prod:**
+- EKS cluster (v1.34, t3.large nodes, 2–4 instances)
+- OIDC provider for IRSA
+- ArgoCD IRSA role (manages distant cluster)
+- ESO IRSA role (reads from AWS Secrets Manager)
+- ingress-nginx Helm release (creates the internet-facing NLB)
+- CloudFront distribution
+
+### Kubernetes Applications (`helm/`)
+
+All applications are managed by ArgoCD using the **ApplicationSet** pattern. Each environment (prod, distant) has its own ApplicationSet that lists which apps to deploy.
+
+```
 helm/
-├── argocd/                       # ArgoCD installation configuration
-│   ├── values.yaml              # Default ArgoCD settings
-│   ├── values-prod.yaml         # Production overrides
-│   ├── Chart.yaml               # Chart metadata
-│   └── README.md                # Installation guide
-├── apps/                         # Application manifests (managed by ArgoCD)
-│   ├── root-app.yaml            # Root Application (App-of-Apps)
-│   └── README.md
-├── README.md                     # Helm and GitOps documentation
-├── AUTOMATION.md                 # Terraform automation details
-└── QUICKSTART.md                 # Quick verification guide
+├── apps/
+│   ├── root-app.yaml              — bootstraps ArgoCD App-of-Apps
+│   ├── application-sets/
+│   │   ├── prod.yaml              — all prod apps (helm + git)
+│   │   └── distant.yaml           — distant apps
+│   └── projects/
+│       ├── prod.yaml              — ArgoCD project for prod
+│       └── distant.yaml           — ArgoCD project for distant
+├── argocd/                        — ArgoCD Helm values
+├── cert-manager/                  — cert-manager Helm values
+├── cert-manager-config/           — cert-manager resources (issuers, certs, ConfigMap)
+├── eso/                           — External Secrets Operator values (IRSA annotation)
+├── eso-config/                    — ClusterSecretStore + ExternalSecret for Linkerd
+├── ingress-nginx/                 — ingress-nginx values
+├── kafka/                         — Strimzi operator values + Kafka cluster manifest
+├── kafka-ui/                      — Kafka UI values
+├── kyverno/                       — Kyverno values + policies
+├── linkerd/                       — Linkerd CRDs and control plane values
+├── prometheus/                    — kube-prometheus-stack values
+└── web-server/                    — Web server Helm chart
 ```
 
-## Terraform Modules
+---
 
-### 1. VPC Module (`modules/vpc`)
+## Deployment Order (Sync Waves)
 
-Creates a production-ready VPC with high availability across multiple availability zones.
+ArgoCD deploys applications in a specific order using sync waves. Each wave completes before the next starts.
 
-**Features:**
-- Custom VPC with configurable CIDR block
-- 3 public subnets across 3 availability zones
-- 3 private subnets across 3 availability zones
-- Internet Gateway for public subnet access
-- NAT Gateway for private subnet outbound connectivity (1 gateway for cost optimization)
-- Route tables configured for public and private subnets
-- EKS-ready subnet tags for automatic discovery
+| Wave | Application | What it does |
+|------|-------------|-------------|
+| -4 | external-secrets | Installs ESO operator |
+| -3 | cert-manager | Installs cert-manager |
+| -3 | eso-config | Creates ClusterSecretStore + ExternalSecret (restores Linkerd trust anchor) |
+| -2 | linkerd-crds | Installs Linkerd CRDs |
+| -2 | cert-manager-config | Creates ClusterIssuer, certificates, trust roots ConfigMap |
+| -2 | kyverno | Installs Kyverno |
+| -1 | kyverno-policies | Deploys Kyverno policies |
+| 0 | linkerd-control-plane | Deploys Linkerd service mesh |
+| 0 | monitoring | Deploys Prometheus + Grafana |
+| 0 | kafka-operator | Deploys Strimzi operator |
+| 0 | kafka-ui | Deploys Kafka web UI |
+| 0 | kafka-cluster | Creates Kafka cluster |
+| 0 | web-server | Deploys the web server |
 
-**Resources Created:**
-- VPC
-- 6 Subnets (3 public, 3 private)
-- Internet Gateway
-- NAT Gateway (1 for cost efficiency)
-- Elastic IP for NAT Gateway
-- Route Tables and Associations
+---
 
-### 2. IAM Roles Module (`modules/iam-roles`)
+## Security Stack
 
-Manages all IAM roles and policies required for EKS cluster operation and access control.
+### Linkerd (mTLS Service Mesh)
 
-**Features:**
-- EKS Cluster Service Role with required AWS managed policies
-- EKS Node Group Role with worker node permissions
-- EKS Admin Access Role for human access with RBAC
-- Automatic trust policy configuration
-- Flexible principal assignment
+All services communicate over mutual TLS automatically. No application code changes needed — Linkerd injects a sidecar proxy into every pod.
 
-**Resources Created:**
-- `eks-cluster-role`: Allows EKS to manage AWS resources
-- `eks-node-group-role`: Allows worker nodes to join cluster and pull images
-- `eks-admin-role`: Human access role with cluster admin permissions
-- Policy attachments for all AWS managed policies
-- Custom inline policies for cluster access
+Certificate chain:
+- **Trust anchor** (10 year root CA) — generated by cert-manager, private key stored in AWS Secrets Manager via ESO so it survives daily cluster rebuilds
+- **Identity issuer** (1 year intermediate CA) — signed by trust anchor, used by Linkerd to issue 24-hour mTLS certificates to each pod
 
-### 3. Security Groups Module (`modules/security-groups`)
+The trust anchor public cert is committed to git in two places:
+1. `helm/linkerd/control-plane-values.yaml` (read by Linkerd control plane)
+2. `helm/cert-manager-config/configmap-trust-roots.yaml` (mounted by Linkerd proxies)
 
-Configures network security for EKS cluster components.
+### External Secrets Operator (ESO)
 
-**Features:**
-- EKS Cluster security group
-- EKS Node Group security group
-- Properly configured ingress/egress rules
-- VPC-aware security group rules
+ESO pulls the Linkerd trust anchor key pair from AWS Secrets Manager and restores it into the `cert-manager` namespace on every cluster start. This ensures cert-manager reuses the same certificate instead of generating a new one, so the committed trust anchor cert never goes stale.
 
-**Resources Created:**
-- Security group for EKS control plane
-- Security group for EKS worker nodes
+### Kyverno (Policy Engine)
 
-### 4. EKS Module (`modules/eks`)
+Three policies enforced cluster-wide:
+- No `latest` image tags
+- All pods must have resource limits
+- Required labels on all resources
 
-Deploys and configures the Amazon EKS cluster with managed node groups.
-
-**Features:**
-- EKS cluster with configurable Kubernetes version (currently v1.34)
-- Managed node groups with auto-scaling
-- Essential EKS add-ons (VPC-CNI, CoreDNS, kube-proxy)
-- Modern API-based authentication with EKS Access Entries
-- Cluster admin access via IAM roles
-- Public and private API endpoint access
-- Comprehensive cluster logging
-
-**Resources Created:**
-- EKS Cluster
-- EKS Managed Node Group
-- EKS Add-ons (VPC-CNI, CoreDNS, kube-proxy)
-- EKS Access Entry for admin role
-- EKS Access Policy Association (Cluster Admin)
-
-### 5. S3 Bucket Module (`modules/s3-bucket`)
-
-General-purpose S3 bucket module for various use cases including Terraform state storage.
-
-**Features:**
-- Configurable bucket settings
-- Versioning support
-- Encryption options
-- Lifecycle policies
-
-### 6. ArgoCD Module (`modules/argocd`)
-
-Automates ArgoCD deployment and configuration for GitOps-based application delivery.
-
-**Features:**
-- Automated ArgoCD installation via Helm provider
-- Root application deployment (App-of-Apps pattern)
-- Integration with GitHub repository
-- LoadBalancer service for UI access
-- Auto-sync and self-heal capabilities
-
-**Resources Created:**
-- ArgoCD Helm release with custom values
-- Root Application manifest for App-of-Apps pattern
-- Repository configuration pointing to this GitHub repo
-
-## Special Features
-
-### 1. RBAC and Access Control
-
-**EKS Access Entries (Modern Authentication)**
-- Uses AWS EKS Access Entries API for cluster authentication
-- Configured with `API_AND_CONFIG_MAP` authentication mode
-- Automatic IAM role to Kubernetes RBAC mapping
-
-**IAM Role-Based Access**
-- Dedicated `eks-admin-role` for cluster administration
-- Root account can assume admin role by default
-- Easily extensible to add more users/roles
-- Cluster admin policy provides full Kubernetes permissions
-
-**Access Flow:**
-```
-User → Assume eks-admin-role → EKS Access Entry → Cluster Admin Permissions
-```
-
-### 2. Secure Networking
-
-**Network Isolation:**
-- Private subnets for EKS worker nodes (no direct internet access)
-- Public subnets for load balancers and bastion hosts
-- NAT Gateway for controlled outbound connectivity from private subnets
-
-**Multi-AZ High Availability:**
-- Resources distributed across 3 availability zones (ca-west-1a, ca-west-1b, ca-west-1c)
-- Automatic failover capability
-- Zone-independent operation
-
-**API Endpoint Access:**
-- Private endpoint enabled (VPC-internal access)
-- Public endpoint configurable (currently enabled for development)
-- CIDR-based access restrictions available
-- Plan to disable public access and use VPN in production
-
-### 3. Terraform State Management
-
-**Remote State Storage:**
-- S3 bucket for centralized state storage
-- DynamoDB table for state locking
-- Prevents concurrent modifications
-- State versioning enabled
-
-**Backend Configuration:**
-```hcl
-backend "s3" {
-  bucket         = "jack-devops-terraform-state"
-  key            = "prod/terraform.tfstate"
-  region         = "ca-west-1"
-  dynamodb_table = "terraform-state-lock"
-  encrypt        = true
-}
-```
-
-### 4. Cost Optimization
-
-- Single NAT Gateway instead of 3 (saves ~$64/month)
-- t3.large instances for worker nodes (2 nodes, ~$60/month)
-- Managed node groups (no additional management overhead)
-- Resource tagging for cost tracking
-- Destroy/recreate workflow for development
-- Ephemeral storage for Kafka and Prometheus (no EBS costs)
-
-### 5. GitOps with ArgoCD
-
-**App-of-Apps Pattern:**
-- Root application watches `helm/apps/` directory
-- Any new Application manifest is automatically deployed
-- Declarative application management via Git
-- Auto-sync and self-heal enabled
-
-**Deployed Applications:**
-
-| Application | Description | Access |
-|-------------|-------------|--------|
-| **ArgoCD** | GitOps continuous delivery | LoadBalancer on port 80 |
-| **Prometheus** | Metrics collection and monitoring | Internal (9090) |
-| **Grafana** | Metrics visualization dashboards | Port-forward 3000 |
-| **Kafka** | Event streaming platform (Strimzi) | Internal bootstrap: 9092 |
-| **Kafka UI** | Web interface for Kafka management | LoadBalancer on port 80 |
-
-See individual README files in `helm/` directories for detailed documentation
-
-**Deployment Workflow:**
-```
-Developer → Commit YAML to helm/apps/ → Push to GitHub
-                                              ↓
-                                    ArgoCD detects change
-                                              ↓
-                                    Auto-sync to cluster
-```
-
-**Features:**
-- Automated deployment on Git push
-- Version-controlled application state
-- Easy rollback capability
-- Single source of truth (Git repository)
-
-### 6. Modular Architecture
-
-**Design Principles:**
-- Self-contained modules with clear boundaries
-- Minimal coupling between modules
-- Reusable across environments
-- Variables for all configurable values
-- Comprehensive outputs for module chaining
-
-**Benefits:**
-- Easy to test individual components
-- Simple to add new environments
-- Clear separation of concerns
-- Maintainable and scalable
-
-## Infrastructure Details
-
-### Current Configuration
-
-| Component | Specification |
-|-----------|---------------|
-| **Region** | ca-west-1 (Calgary) |
-| **Kubernetes Version** | 1.34 |
-| **VPC CIDR** | 10.0.0.0/16 |
-| **Availability Zones** | 3 (ca-west-1a, ca-west-1b, ca-west-1c) |
-| **Public Subnets** | 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24 |
-| **Private Subnets** | 10.0.11.0/24, 10.0.12.0/24, 10.0.13.0/24 |
-| **NAT Gateways** | 1 (cost optimization) |
-| **Worker Nodes** | 2 (min: 1, max: 4) |
-| **Instance Type** | t3.small |
-| **Capacity Type** | ON_DEMAND |
-| **Node Disk Size** | 20 GB |
-| **ArgoCD** | Deployed with LoadBalancer, App-of-Apps pattern |
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- AWS Account with appropriate permissions
 - AWS CLI configured
-- Terraform >= 1.0
+- Terraform >= 1.5
 - kubectl
-- Helm (for manual ArgoCD operations, optional)
+- An AWS account with permissions to create EKS, IAM, VPC, CloudFront resources
 
-### Deployment
-
-1. **Initialize Terraform:**
-   ```bash
-   cd terraform/envs/prod
-   terraform init
-   ```
-
-2. **Review the plan:**
-   ```bash
-   terraform plan
-   ```
-
-3. **Apply the configuration:**
-   ```bash
-   terraform apply
-   ```
-
-4. **Configure kubectl:**
-   ```bash
-   aws eks update-kubeconfig --name jack-devops-eks-cluster --region ca-west-1
-   ```
-
-5. **Verify cluster access:**
-   ```bash
-   kubectl get nodes
-   kubectl get pods -n argocd
-   ```
-
-6. **Access ArgoCD UI:**
-   ```bash
-   # Get admin password
-   kubectl -n argocd get secret argocd-initial-admin-secret \
-     -o jsonpath="{.data.password}" | base64 -d
-
-   # Port forward to access UI
-   kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-   # Access: https://localhost:8080 (username: admin)
-   ```
-
-### Accessing the Cluster
-
-To access the cluster with admin permissions, assume the eks-admin-role:
+### 1. Deploy the prod cluster
 
 ```bash
-# Get the role ARN
-aws iam get-role --role-name jack-devops-eks-admin-role --query 'Role.Arn' --output text
-
-# Assume the role
-aws sts assume-role \
-  --role-arn arn:aws:iam::ACCOUNT_ID:role/jack-devops-eks-admin-role \
-  --role-session-name kubectl-session
-
-# Export the temporary credentials
-export AWS_ACCESS_KEY_ID=<AccessKeyId>
-export AWS_SECRET_ACCESS_KEY=<SecretAccessKey>
-export AWS_SESSION_TOKEN=<SessionToken>
-
-# Update kubeconfig
-aws eks update-kubeconfig --name jack-devops-eks-cluster --region ca-west-1
-
-# Verify access
-kubectl get nodes
-kubectl get pods -A
+cd terraform/envs/prod
+terraform init
+terraform apply
 ```
 
-## Development Timeline
+This creates the EKS cluster, installs ArgoCD, and deploys the root app. ArgoCD then takes over and deploys everything else automatically.
 
-### Phase 1: Foundation (Completed)
-- [x] S3 bucket module for reusable bucket creation
-- [x] Remote state backend setup (S3 + DynamoDB)
-- [x] VPC module with public/private subnets
-- [x] Multi-AZ networking with NAT gateway
+### 2. Configure kubectl
 
-### Phase 2: IAM and Security (Completed)
-- [x] IAM roles module for EKS cluster and nodes
-- [x] Security groups module for EKS components
-- [x] EKS admin access role with RBAC
-- [x] Modern EKS Access Entries implementation
+```bash
+aws eks update-kubeconfig --name jack-devops-eks-cluster --region ca-west-1
+```
 
-### Phase 3: EKS Cluster (Completed)
-- [x] EKS cluster module with managed node groups
-- [x] Essential EKS add-ons (VPC-CNI, CoreDNS, kube-proxy)
-- [x] Cluster logging configuration
-- [x] API endpoint access control
-- [x] Integration testing and validation
+### 3. Bootstrap the Linkerd trust anchor (one-time)
 
-### Phase 4: GitOps and Automation (Completed)
-- [x] ArgoCD module for automated deployment
-- [x] Helm and kubectl provider configuration
-- [x] Root application (App-of-Apps pattern)
-- [x] GitHub repository integration
-- [x] Auto-sync and self-heal configuration
-- [x] Documentation (helm/README.md, AUTOMATION.md, QUICKSTART.md)
+After the first deployment, save the generated trust anchor to AWS Secrets Manager so it persists across rebuilds:
 
-### Phase 5: Monitoring and Observability (Completed)
-- [x] Prometheus deployment for metrics collection
-- [x] Grafana deployment for metrics visualization
-- [x] ServiceMonitor configuration for auto-discovery
-- [x] Integration with Kafka metrics
+```bash
+aws secretsmanager create-secret \
+  --name linkerd/trust-anchor \
+  --secret-string "{
+    \"tls.crt\": \"$(kubectl get secret linkerd-trust-anchor -n cert-manager \
+                      -o jsonpath='{.data.tls\.crt}' | base64 -d)\",
+    \"tls.key\": \"$(kubectl get secret linkerd-trust-anchor -n cert-manager \
+                      -o jsonpath='{.data.tls\.key}' | base64 -d)\"
+  }"
+```
 
-### Phase 6: Event Streaming (Completed)
-- [x] Kafka deployment using Strimzi Operator
-- [x] KRaft mode configuration (no Zookeeper)
-- [x] Kafka UI for web-based management
-- [x] Multi-source ArgoCD applications
-- [x] Resource optimization for t3.large nodes
+Then extract the public cert and update both places in git:
 
-### Phase 7: Future Enhancements (Planned)
-- [ ] Sample producer/consumer applications for Kafka
-- [ ] Ingress controller (NGINX via ArgoCD)
-- [ ] VPN setup for secure private cluster access
-- [ ] CI/CD pipeline integration
-- [ ] Secrets management (AWS Secrets Manager/External Secrets)
-- [ ] Auto-scaling configuration (Cluster Autoscaler/Karpenter)
-- [ ] Backup and disaster recovery procedures
+```bash
+kubectl get secret linkerd-trust-anchor -n cert-manager \
+  -o jsonpath='{.data.tls\.crt}' | base64 -d
+```
 
-## Tags and Organization
+Paste the output into:
+- `helm/linkerd/control-plane-values.yaml` → `identity.trustAnchorsPEM`
+- `helm/cert-manager-config/configmap-trust-roots.yaml` → `data.ca-bundle.crt`
 
-All resources are tagged with:
-- `Environment`: prod
-- `ManagedBy`: terraform
-- `Project`: eks-demo
+After this initial setup, the trust anchor is permanent — ESO restores it from AWS SM on every rebuild.
 
-## Resource Naming Convention
+### 4. Deploy the distant cluster (optional)
 
-All resources follow the pattern: `jack-devops-{resource-name}`
+```bash
+cd terraform/envs/distant
+terraform init
+terraform apply
+```
 
-Examples:
-- `jack-devops-eks-vpc`
+Then go back to prod and enable VPC peering by setting `distant_vpc_id` in `terraform/envs/prod/main.tf`.
+
+### 5. Access ArgoCD
+
+```bash
+# Get the admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+
+# Port forward to access the UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Open https://localhost:8080
+```
+
+---
+
+## Cluster Configuration
+
+| Setting | Value |
+|---------|-------|
+| Region (prod) | ca-west-1 (Calgary) |
+| Region (distant) | ap-southeast-1 (Singapore) |
+| Kubernetes version | 1.34 |
+| Node type | t3.large |
+| Node count | 2 (min 1, max 4) |
+| VPC CIDR (prod) | 10.0.0.0/16 |
+| VPC CIDR (distant) | 10.1.0.0/16 |
+| Availability zones | 3 per region |
+| NAT gateways | 1 per cluster (cost saving) |
+
+---
+
+## Naming Convention
+
+All AWS resources follow `jack-devops-{name}`:
 - `jack-devops-eks-cluster`
-- `jack-devops-eks-cluster-role`
-- `jack-devops-eks-admin-role`
+- `jack-devops-eks-vpc`
+- `jack-devops-argocd-irsa-role`
+- `jack-devops-eso-irsa-role`
 
-## Contributing
+---
 
-This is a personal learning project, but suggestions and feedback are welcome.
+## Daily Cluster Rebuilds
 
-## License
+This project is designed to be torn down and rebuilt daily to minimize AWS costs. The workflow:
 
-This project is for educational and demonstration purposes.
+1. `terraform destroy` — deletes everything
+2. `terraform apply` — rebuilds the cluster
+3. ArgoCD automatically redeploys all applications in the correct order
+4. ESO restores the Linkerd trust anchor from AWS Secrets Manager — no manual cert updates needed
 
-## Acknowledgments
-
-Built as part of a DevOps learning journey and interview preparation process.
+The only persistent state outside Kubernetes is:
+- Terraform remote state (S3 + DynamoDB)
+- Linkerd trust anchor key pair (AWS Secrets Manager)

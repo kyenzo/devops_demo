@@ -1,190 +1,132 @@
-# Kubernetes GitOps Configuration
+# Helm — Application Configuration
 
-This directory contains ArgoCD configuration for managing applications on the jack-devops EKS cluster via GitOps.
+This directory contains all Kubernetes application configuration managed by ArgoCD. Everything here is declarative — ArgoCD watches this directory and applies changes to the cluster automatically when you push to `master`.
 
-## Structure
+---
+
+## How Applications Are Deployed
+
+ArgoCD uses the **ApplicationSet** pattern. Instead of one Application manifest per app, there are two ApplicationSets per cluster that generate applications from a list:
+
+- **prod-helm-apps** — external Helm charts (cert-manager, Linkerd, Prometheus, etc.)
+- **prod-git-apps** — raw Kubernetes manifests from this repo (cert-manager-config, eso-config, etc.)
+
+Both are defined in `helm/apps/application-sets/prod.yaml`.
+
+Adding a new app is as simple as adding an entry to the list in that file.
+
+---
+
+## Directory Overview
 
 ```
 helm/
-├── argocd/                      # ArgoCD installation configuration
-│   ├── values.yaml             # Default ArgoCD settings
-│   ├── values-prod.yaml        # Production overrides
-│   ├── Chart.yaml              # Chart metadata (reference)
-│   └── README.md               # Installation guide
-├── apps/                        # Application manifests (managed by ArgoCD)
-│   ├── root-app.yaml           # Root Application (App-of-Apps)
-│   └── README.md
-├── README.md                    # This file
-├── AUTOMATION.md                # How Terraform automation works
-└── QUICKSTART.md                # Quick verification guide
+├── apps/                        — ArgoCD configuration (ApplicationSets, Projects)
+├── argocd/                      — ArgoCD Helm values (managed by Terraform)
+├── cert-manager/                — cert-manager Helm values
+├── cert-manager-config/         — cert-manager resources (issuers, certs, ConfigMap)
+├── eso/                         — External Secrets Operator Helm values
+├── eso-config/                  — ESO ClusterSecretStore and ExternalSecret
+├── ingress-nginx/               — ingress-nginx values (deployed by Terraform directly)
+├── kafka/                       — Strimzi operator values + Kafka cluster manifest
+├── kafka-ui/                    — Kafka UI values
+├── kyverno/                     — Kyverno values and policies
+├── linkerd/                     — Linkerd CRDs and control plane values
+├── prometheus/                  — kube-prometheus-stack values
+└── web-server/                  — Web server Helm chart (templates + values)
 ```
 
-## Automated Deployment
+---
 
-ArgoCD is **automatically deployed by Terraform** when you create the EKS cluster:
+## Sync Waves — Deployment Order
 
-```bash
-cd terraform/envs/prod
-terraform apply
-```
-
-This will:
-1. Create EKS cluster
-2. Install ArgoCD using Helm provider
-3. Deploy root application for App-of-Apps pattern
-4. Enable GitOps - ArgoCD watches this repository
-
-See [AUTOMATION.md](AUTOMATION.md) for details.
-
-## Quick Start
-
-### 1. Access ArgoCD UI
-
-```bash
-# Get admin password
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d
-
-# Port forward
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-# Access: https://localhost:8080 (admin / password-from-above)
-```
-
-### 2. Verify Applications 
-
-```bash
-kubectl get applications -n argocd
-# Should show: root-app (Synced & Healthy)
-```
-
-## Directory Details
-
-### argocd/
-ArgoCD installation configuration used by Terraform.
-
-**Active files:**
-- `values.yaml` - Default ArgoCD configuration (read by Terraform)
-- `values-prod.yaml` - Production overrides (read by Terraform)
-
-**Reference files:**
-- `Chart.yaml` - Shows chart version being used
-- `README.md` - Manual installation steps (for reference)
-
-### apps/
-Application manifests managed by ArgoCD (App-of-Apps pattern).
-
-**Files:**
-- `root-app.yaml` - Root application that watches this directory
-  - Deployed by Terraform initially
-  - Manages all child applications from Git
-
-**To add new applications:**
-1. Create a new Application YAML in this directory
-2. Commit and push to Git
-3. Root app will automatically deploy it
-
-
-## GitOps Workflow
+Applications deploy in order. A wave must complete successfully before the next wave starts. This ensures dependencies are ready before dependents.
 
 ```
-Developer makes change → Commit to Git → Push to master branch
-                                              ↓
-                                    ArgoCD detects change
-                                              ↓
-                                   ArgoCD syncs to cluster
+Wave -4:  external-secrets         (ESO operator — needed before eso-config)
+Wave -3:  cert-manager             (needed before cert-manager-config)
+          eso-config               (restores Linkerd trust anchor from AWS SM)
+Wave -2:  linkerd-crds             (CRDs before control plane)
+          cert-manager-config      (issuers, certs, trust roots ConfigMap)
+          kyverno                  (operator before policies)
+Wave -1:  kyverno-policies         (policies after operator is ready)
+Wave  0:  linkerd-control-plane    (needs certs and CRDs from earlier waves)
+          monitoring               (Prometheus + Grafana)
+          kafka-operator           (Strimzi operator)
+          kafka-cluster            (Kafka cluster CRD)
+          kafka-ui                 (web interface)
+          web-server               (the application)
 ```
 
-**Branch Monitoring**: ArgoCD is configured to monitor only the `master` branch for production deployments. Changes to other branches will not trigger automatic deployments.
+---
 
-### Making Changes
+## Adding a New Application
 
-1. Edit any file in `helm/apps/`
-2. Commit and push to the `master` branch on GitHub
-3. ArgoCD auto-syncs within 3 minutes
-4. Or manually sync in ArgoCD UI
+### External Helm chart
 
-## Adding Applications
-
-Create a new Application manifest in `helm/apps/`:
+Add an entry to the `elements` list in the `prod-helm-apps` generator in `helm/apps/application-sets/prod.yaml`:
 
 ```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: my-app
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/kyenzo/devops_demo.git
-    targetRevision: HEAD
-    path: path/to/my-app
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: my-app
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+- name: my-app
+  namespace: my-app
+  chartRepo: https://charts.example.com
+  chart: my-chart
+  chartVersion: "1.2.3"
+  valuesFile: helm/my-app/values.yaml
+  syncWave: "0"
 ```
 
-The root-app will automatically detect and deploy it.
+Then create `helm/my-app/values.yaml` with your chart overrides.
 
-## Configuration Changes
+### Raw Kubernetes manifests from this repo
 
-### Modify ArgoCD Settings
+Add an entry to the `prod-git-apps` generator:
 
-Edit `helm/argocd/bootstrap/values.yaml` or `values-prod.yaml`, then:
+```yaml
+- name: my-config
+  namespace: my-namespace
+  path: helm/my-config
+  syncWave: "0"
+```
 
+Then create `helm/my-config/` with your manifest files.
+
+---
+
+## Certificate Management (Linkerd)
+
+The `cert-manager-config/` directory manages the Linkerd certificate chain:
+
+1. **`clusterissuer-selfsigned.yaml`** — bootstrap self-signed issuer (creates the root CA)
+2. **`certificate-trust-anchor.yaml`** — root CA cert (10 years, stored in `cert-manager` namespace)
+3. **`issuer-linkerd.yaml`** — ClusterIssuer that uses the trust anchor to sign certs
+4. **`certificate-identity-issuer.yaml`** — intermediate CA cert (1 year, stored in `linkerd` namespace)
+5. **`configmap-trust-roots.yaml`** — ConfigMap mounted by Linkerd proxies with the trust anchor public cert
+
+The trust anchor private key is preserved across cluster rebuilds by ESO (see `eso-config/`).
+
+---
+
+## Linkerd Service Mesh
+
+`helm/linkerd/` contains two things:
+- `crds-values.yaml` — values for the `linkerd-crds` chart (empty, CRDs need no customization)
+- `control-plane-values.yaml` — values for `linkerd-control-plane`, including the trust anchor public cert
+
+To enable Linkerd mTLS on a namespace, annotate it:
 ```bash
-cd terraform/envs/prod
-terraform apply
+kubectl annotate namespace my-app linkerd.io/inject=enabled
 ```
 
-Terraform will update ArgoCD with new configuration.
+---
 
-## Naming Conventions
+## Web Server
 
-- **Prefix**: `jack-devops-`
-- **Namespaces**: `{application-name}` (e.g., `argocd`)
-- **Labels**: environment=prod, managedBy=helm/argocd, project=eks-demo
+`helm/web-server/` is a full Helm chart (not just values) because the web server is deployed from this repo, not an external chart.
 
-## Troubleshooting
+The chart includes:
+- `templates/deployment.yaml` — deployment with configurable env vars
+- `templates/service.yaml` — ClusterIP service
+- `templates/ingress.yaml` — ingress rule for ingress-nginx
 
-### ArgoCD Not Syncing
-
-```bash
-# Check application status
-kubectl get applications -n argocd
-kubectl describe application root-app -n argocd
-
-# Check ArgoCD logs
-kubectl logs -n argocd deployment/argocd-server
-```
-
-### Manually Sync Application
-
-```bash
-# Via kubectl
-kubectl patch application root-app -n argocd \
-  --type merge -p '{"operation":{"sync":{}}}'
-
-# Or via ArgoCD CLI
-argocd app sync root-app
-```
-
-## Next Steps
-
-1. **Add Applications**: Create new Application manifests in `argocd/apps/`
-2. **Monitor**: Set up monitoring with Prometheus/Grafana
-3. **Ingress**: Add ingress controller for external access
-4. **CI/CD**: Integrate with GitHub Actions for automated deployments
-
-## Resources
-
-- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
-- [App-of-Apps Pattern](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
-- [GitOps Principles](https://opengitops.dev/)
-- [Automation Details](AUTOMATION.md)
-- [Quick Start Guide](QUICKSTART.md)
+The `CLUSTER_NAME` env var is overridden per-cluster via ApplicationSet parameters, so the app can report which cluster is serving the request.
