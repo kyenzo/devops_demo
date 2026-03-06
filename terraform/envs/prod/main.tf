@@ -18,6 +18,11 @@ locals {
   # Construct ARN from known values so it is resolved at plan time,
   # avoiding the Helm provider "inconsistent final plan" bug with dynamic set blocks
   argocd_irsa_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.prefix}argocd-irsa-role"
+
+  # true only when the distant cluster has been applied and its outputs exist in remote state.
+  # When distant is destroyed (or never applied), this is false and all distant-dependent
+  # resources are skipped so prod can be applied/destroyed independently.
+  distant_ready = can(data.terraform_remote_state.distant.outputs.cluster_endpoint)
 }
 
 module "vpc" {
@@ -193,6 +198,7 @@ resource "aws_iam_role_policy" "argocd_eks_access" {
 
 # IRSA: Grant ArgoCD IAM role cluster-admin access to the distant EKS cluster
 resource "aws_eks_access_entry" "argocd_distant" {
+  count    = local.distant_ready ? 1 : 0
   provider = aws.distant
 
   cluster_name  = "jack-devops-distant-eks-cluster"
@@ -207,6 +213,7 @@ resource "aws_eks_access_entry" "argocd_distant" {
 }
 
 resource "aws_eks_access_policy_association" "argocd_distant_admin" {
+  count    = local.distant_ready ? 1 : 0
   provider = aws.distant
 
   cluster_name  = "jack-devops-distant-eks-cluster"
@@ -233,6 +240,8 @@ data "terraform_remote_state" "distant" {
 # Register distant cluster in ArgoCD by creating a cluster secret
 # ArgoCD uses awsAuthConfig for EKS clusters - no static credentials needed
 resource "kubectl_manifest" "argocd_distant_cluster" {
+  count = local.distant_ready ? 1 : 0
+
   yaml_body = yamlencode({
     apiVersion = "v1"
     kind       = "Secret"
@@ -359,7 +368,7 @@ module "cdn" {
   source = "../../modules/cloudfront"
 
   prod_origin_domain    = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
-  distant_origin_domain = data.terraform_remote_state.distant.outputs.ingress_nlb_hostname
+  distant_origin_domain = try(data.terraform_remote_state.distant.outputs.ingress_nlb_hostname, "")
 
   tags = {
     Environment = "prod"
