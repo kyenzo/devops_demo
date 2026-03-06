@@ -365,10 +365,11 @@ data "kubernetes_service" "ingress_nginx" {
 }
 
 module "cdn" {
+  count  = local.distant_ready ? 1 : 0
   source = "../../modules/cloudfront"
 
   prod_origin_domain    = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
-  distant_origin_domain = try(data.terraform_remote_state.distant.outputs.ingress_nlb_hostname, "")
+  distant_origin_domain = data.terraform_remote_state.distant.outputs.ingress_nlb_hostname
 
   tags = {
     Environment = "prod"
