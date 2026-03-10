@@ -119,6 +119,7 @@ helm/
 
 ---
 
+
 ## Deployment Order (Sync Waves)
 
 ArgoCD deploys applications in a specific order using sync waves. Each wave completes before the next starts.
